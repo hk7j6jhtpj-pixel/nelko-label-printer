@@ -144,6 +144,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent-soft
 .box .h.w { left: -6px; top: calc(50% - 5px); cursor: ew-resize; }
 .box .h.p1, .box .h.p2 { border-radius: 50%; cursor: crosshair; }
 .box .tag { position: absolute; top: -20px; left: -1px; font-size: 11px; background: var(--sel); color: #fff; padding: 1px 6px; border-radius: 4px 4px 4px 0; white-space: nowrap; pointer-events: none; }
+.inline-edit { position: absolute; z-index: 5; border: 1.5px solid var(--sel); border-radius: 2px; outline: none; resize: none; overflow: hidden; box-shadow: 0 0 0 3px var(--accent-soft); transform-origin: center; caret-color: var(--sel); min-height: 0; margin: 0; }
 .guide { position: absolute; background: #ec4899; pointer-events: none; display: none; }
 .guide.v { width: 1px; top: -10px; bottom: -10px; }
 .guide.h { height: 1px; left: -10px; right: -10px; }

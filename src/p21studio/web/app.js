@@ -165,6 +165,7 @@ async function requestRender() {
       S.render.variables = r.variables;
       renderVars();
     }
+    if (S.inline) S.inline.layout();
     const sel = r.boxes[S.sel];
     const auto = $("#auto-size-note");
     if (auto) auto.textContent = sel && sel.font_size ? `現在 ${sel.font_size}px` : "";
@@ -187,10 +188,102 @@ function zoom() {
   return clamp(Math.floor(Math.min(fitW, fitH) * 2) / 2, 1, 8);
 }
 
+// ---------------------------------------------------------------- inline text editing
+// Double-click a text element to type directly on the label. The textarea mimics the
+// rendered text (size from the auto-fit result, alignment, weight, vertical writing).
+function startInlineEdit(i, selectAll = false) {
+  const el = S.label.elements[i];
+  if (!el || el.type !== "text") return;
+  if (S.inline) S.inline.finish(true);
+  if (S.sel !== i) select(i);
+  checkpoint();
+  const original = el.text ?? "";
+  const ta = document.createElement("textarea");
+  ta.className = "inline-edit";
+  ta.value = original;
+  ta.spellcheck = false;
+  $("#stage").appendChild(ta);
+
+  const layout = () => {
+    const e = fill(el), z = zoom();
+    const box = S.render.boxes[i];
+    const size = (e.size === "auto" || e.size == null ? box?.font_size || 24 : e.size) * z;
+    const fam = e.font && e.font !== "auto" && !/[\\/]/.test(e.font) ? `"${e.font}", ` : "";
+    const pref = (S.meta.fonts_preferred || []).map((f) => `"${f}"`).join(", ");
+    const rot = e.rotate || 0;
+    const sideways = rot === 90 || rot === 270;
+    const bw = (sideways ? e.h : e.w) * z, bh = (sideways ? e.w : e.h) * z;
+    Object.assign(ta.style, {
+      left: e.x * z + (e.w * z - bw) / 2 + "px",
+      top: e.y * z + (e.h * z - bh) / 2 + "px",
+      width: bw + "px",
+      height: bh + "px",
+      transform: rot ? `rotate(${rot}deg)` : "",
+      fontSize: size + "px",
+      lineHeight: String(e.line_spacing || 1.15),
+      letterSpacing: (e.letter_spacing || 0) * z + "px",
+      fontWeight: e.bold ? "700" : "400",
+      fontFamily: `${fam}${pref ? pref + ", " : ""}sans-serif`,
+      textAlign: e.vertical ? ({ top: "start", middle: "center", bottom: "end" }[e.valign || "middle"]) : (e.align || "center"),
+      writingMode: e.vertical ? "vertical-rl" : "horizontal-tb",
+      whiteSpace: e.wrap === false ? "pre" : "pre-wrap",
+      color: e.color === "white" ? "#fff" : "#000",
+      background: e.color === "white" ? "#000" : "#fff",
+      padding: "0",
+    });
+    // textareas cannot centre their content: measure it and pad the start side instead
+    if (e.vertical) {
+      ta.style.width = "0px";
+      const contentW = ta.scrollWidth;
+      ta.style.width = bw + "px";
+      const free = Math.max(0, bw - contentW);
+      const al = e.align || "center"; // vertical columns flow from the right
+      ta.style.paddingRight = (al === "right" ? 0 : al === "center" ? free / 2 : free) + "px";
+    } else {
+      ta.style.height = "0px";
+      const contentH = ta.scrollHeight;
+      ta.style.height = bh + "px";
+      const free = Math.max(0, bh - contentH);
+      const v = e.valign || "middle";
+      ta.style.paddingTop = (v === "top" ? 0 : v === "middle" ? free / 2 : free) + "px";
+    }
+  };
+
+  const finish = (commit) => {
+    if (S.inline !== state) return;
+    S.inline = null;
+    ta.remove();
+    if (!commit) {
+      el.text = original;
+      S.history.pop(); // nothing changed: drop the checkpoint taken when editing started
+    } else if (el.text === original) {
+      S.history.pop();
+    }
+    changed(true);
+  };
+
+  ta.addEventListener("input", () => { el.text = ta.value; requestRender(); renderLayers(); const t = $("#prop-text"); if (t && t !== document.activeElement) t.value = ta.value; layout(); });
+  ta.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { e.preventDefault(); finish(false); }
+    else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); finish(true); }
+    else if (e.key === "Tab") { e.preventDefault(); finish(true); }
+    e.stopPropagation();
+  });
+  ta.addEventListener("blur", () => finish(true));
+  ta.addEventListener("pointerdown", (e) => e.stopPropagation());
+
+  const state = { i, layout, finish };
+  S.inline = state;
+  layout();
+  ta.focus();
+  if (selectAll) ta.select(); else ta.setSelectionRange(ta.value.length, ta.value.length);
+}
+
 function renderOverlay() {
   const [W, H] = canvasSize();
   const z = zoom();
   const stage = $("#stage");
+  if (S.inline) S.inline.layout();
   stage.style.width = W * z + "px";
   stage.style.height = H * z + "px";
   stage.classList.toggle("inverted", !!S.label.invert);
@@ -359,7 +452,7 @@ function addElement(type, extra = {}) {
   S.label.elements.push(el);
   S.sel = S.label.elements.length - 1;
   changed(true);
-  if (el.type === "text") setTimeout(() => { const t = $("#prop-text"); if (t) { t.focus(); t.select(); } }, 30);
+  if (el.type === "text") setTimeout(() => startInlineEdit(S.label.elements.length - 1, true), 60);
 }
 
 function deleteSelected() {
@@ -668,6 +761,7 @@ function renderLabelProps(p) {
   info.className = "empty";
   const [W, H] = canvasSize();
   info.innerHTML = `印字範囲は <b>${W}×${H}</b> ドット（約 8 ドット = 1 mm）。<br>左の「追加」から要素を置き、ドラッグで移動、角で大きさを変えます。<br><br>
+    文字は<b>ダブルクリック</b>（または <span class="kbd">Enter</span>）でその場で編集、<span class="kbd">Esc</span> で取り消し。<br>
     <span class="kbd">Del</span> 削除 ・ <span class="kbd">Ctrl+D</span> 複製 ・ <span class="kbd">矢印</span> 1 ドット移動（Shift で 8）<br>
     <span class="kbd">Ctrl+Z</span> 元に戻す ・ <span class="kbd">Ctrl+S</span> 保存 ・ <span class="kbd">Ctrl+P</span> 印刷<br>
     ドラッグ中 <span class="kbd">Alt</span> でスナップ無効、<span class="kbd">Shift</span> で縦横比固定。<br>
@@ -1067,7 +1161,10 @@ function bind() {
   stage.addEventListener("pointerup", onPointerUp);
   stage.addEventListener("pointercancel", onPointerUp);
   stage.addEventListener("dblclick", (e) => {
-    if (e.target.closest(".box")) { const t = $("#prop-text") || $("#props textarea"); if (t) t.focus(); }
+    if (e.target.closest(".inline-edit") || S.sel < 0) return;
+    const el = S.label.elements[S.sel];
+    if (el.type === "text") startInlineEdit(S.sel);
+    else { const t = $("#props textarea") || $("#props input"); if (t) t.focus(); }
   });
 
   document.querySelectorAll("[data-add]").forEach((b) => b.onclick = () => b.dataset.add === "image" ? pickImage(null) : addElement(b.dataset.add));
@@ -1177,6 +1274,7 @@ function bind() {
     else if (mod && e.key.toLowerCase() === "d") { e.preventDefault(); duplicateSelected(); }
     else if (e.key === "Delete" || e.key === "Backspace") { if (S.sel >= 0) { e.preventDefault(); deleteSelected(); } }
     else if (e.key === "Escape") select(-1);
+    else if ((e.key === "Enter" || e.key === "F2") && S.sel >= 0 && S.label.elements[S.sel].type === "text") { e.preventDefault(); startInlineEdit(S.sel); }
     else if (e.key.startsWith("Arrow") && S.sel >= 0) {
       e.preventDefault();
       const s = e.shiftKey ? 8 : 1;
