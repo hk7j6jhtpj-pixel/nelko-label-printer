@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "name": "備品タグ",
+  "media": {"width_mm": 14, "length_mm": 40},
+  "elements": [
+    {"type": "rect", "x": 0, "y": 0, "w": 284, "h": 96, "stroke": 3, "radius": 10},
+    {"type": "qr", "x": 8, "y": 8, "w": 80, "h": 80, "data": "https://example.com/asset/{{id}}"},
+    {"type": "rect", "x": 96, "y": 10, "w": 178, "h": 30, "fill": true, "radius": 4},
+    {"type": "text", "x": 100, "y": 12, "w": 170, "h": 26, "text": "{{id}}", "bold": true, "color": "white"},
+    {"type": "text", "x": 96, "y": 44, "w": 178, "h": 44, "text": "{{name}}", "bold": true}
+  ],
+  "variables": {"id": "PC-0001", "name": "ノートPC"}
+}

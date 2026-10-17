@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "name": "縦書き（縦長）",
+  "media": "14x40",
+  "orientation": "portrait",
+  "elements": [
+    {"type": "rect", "x": 2, "y": 2, "w": 92, "h": 280, "stroke": 2, "radius": 8},
+    {"type": "text", "x": 8, "y": 10, "w": 80, "h": 264, "text": "書類保管\n二〇二六年度", "vertical": true, "bold": true}
+  ]
+}

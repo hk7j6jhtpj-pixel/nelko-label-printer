@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>P21 Studio</title>
+<link rel="stylesheet" href="/static/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='2' y='9' width='28' height='14' rx='4' fill='%23111'/%3E%3Crect x='6' y='13' width='12' height='6' rx='1' fill='%23fff'/%3E%3C/svg%3E">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="brand-mark"></span>P21 Studio</div>
+  <div class="top-group">
+    <label class="field-inline">ラベル
+      <select id="media"></select>
+    </label>
+    <div class="seg" id="orientation" role="group" aria-label="向き">
+      <button data-v="landscape" title="横長でデザイン">横</button>
+      <button data-v="portrait" title="縦長でデザイン">縦</button>
+    </div>
+  </div>
+  <div class="top-group">
+    <button class="icon-btn" id="undo" title="元に戻す (Ctrl+Z)">↶</button>
+    <button class="icon-btn" id="redo" title="やり直し (Ctrl+Y)">↷</button>
+    <span class="sep"></span>
+    <button class="btn ghost" id="new">新規</button>
+    <button class="btn ghost" id="open">開く</button>
+    <button class="btn ghost" id="save">保存</button>
+    <button class="btn ghost" id="export-png">PNG</button>
+    <input type="file" id="open-file" accept=".json,application/json,image/*" hidden>
+  </div>
+  <button class="device-pill" id="device-pill" title="プリンタの接続設定">
+    <span class="dot" id="device-dot"></span>
+    <span id="device-label">プリンタ未設定</span>
+    <span class="battery" id="device-battery"></span>
+  </button>
+</header>
+
+<main class="layout">
+  <aside class="panel tools">
+    <h2>追加</h2>
+    <div class="tool-grid">
+      <button class="tool" data-add="text"><span class="ti">T</span>テキスト</button>
+      <button class="tool" data-add="qr"><span class="ti">▦</span>QR</button>
+      <button class="tool" data-add="barcode"><span class="ti">║</span>バーコード</button>
+      <button class="tool" data-add="image"><span class="ti">▣</span>画像</button>
+      <button class="tool" data-add="rect"><span class="ti">□</span>四角</button>
+      <button class="tool" data-add="ellipse"><span class="ti">○</span>円</button>
+      <button class="tool" data-add="line"><span class="ti">╱</span>線</button>
+      <button class="tool" data-add="date"><span class="ti">📅</span>日付</button>
+    </div>
+    <input type="file" id="image-file" accept="image/*" hidden>
+    <h2>テンプレート</h2>
+    <div class="templates" id="templates"></div>
+    <h2>レイヤー</h2>
+    <ol class="layers" id="layers"></ol>
+  </aside>
+
+  <section class="center">
+    <div class="stage-wrap" id="stage-wrap">
+      <div class="stage" id="stage">
+        <img id="preview" alt="" draggable="false">
+        <div class="overlay" id="overlay"></div>
+        <div class="guide v" id="guide-v"></div>
+        <div class="guide h" id="guide-h"></div>
+      </div>
+      <div class="stage-info" id="stage-info"></div>
+    </div>
+    <div class="zoom">
+      <button class="icon-btn" id="zoom-out" title="縮小">−</button>
+      <button class="btn ghost small" id="zoom-fit">全体</button>
+      <button class="icon-btn" id="zoom-in" title="拡大">＋</button>
+      <label class="check"><input type="checkbox" id="show-boxes" checked> 枠を表示</label>
+    </div>
+    <div class="warnings" id="warnings"></div>
+
+    <div class="vars card" id="vars-card" hidden>
+      <div class="card-head">
+        <h3>差し込み変数</h3>
+        <div>
+          <button class="btn ghost small" id="csv-load">CSV 読み込み</button>
+          <button class="btn ghost small" id="csv-clear" hidden>CSV 解除</button>
+          <input type="file" id="csv-file" accept=".csv,text/csv" hidden>
+        </div>
+      </div>
+      <div class="vars-grid" id="vars-grid"></div>
+      <div class="csv-info" id="csv-info" hidden></div>
+    </div>
+
+    <div class="printbar">
+      <label class="field-inline">枚数 <input type="number" id="copies" min="1" max="99" value="1"></label>
+      <label class="field-inline">濃度 <input type="range" id="density" min="1" max="15" value="15"><output id="density-out">15</output></label>
+      <button class="btn primary big" id="print"><span class="spinner" hidden></span><span class="label">印刷</span></button>
+    </div>
+  </section>
+
+  <aside class="panel props" id="props"></aside>
+</main>
+
+<dialog id="device-dialog">
+  <form method="dialog" class="dialog-body">
+    <h2>プリンタ接続</h2>
+    <p class="muted">P21 の電源を入れ、OS の Bluetooth 設定でペアリングしてから「検索」してください。BLE 専用の個体はペアリング不要です。</p>
+    <div class="row">
+      <button type="button" class="btn" id="scan">検索</button>
+      <label class="check"><input type="checkbox" id="scan-ble" checked> BLE も探す</label>
+      <span class="spinner" id="scan-spinner" hidden></span>
+    </div>
+    <ul class="scan-list" id="scan-list"></ul>
+    <label class="field">デバイス指定（手入力）
+      <input id="device-input" placeholder="rfcomm:AA:BB:CC:DD:EE:FF / serial:COM5 / ble:... / mock:">
+    </label>
+    <div class="row">
+      <button type="button" class="btn" id="device-save">この設定を使う</button>
+      <button type="button" class="btn ghost" id="device-mock" title="実機に送らず、印刷結果を画像で保存します。既定のプリンタ設定が置き換わります">テスト用（モック）</button>
+      <button type="button" class="btn ghost" id="device-check">状態を確認</button>
+    </div>
+    <p class="muted small-note">「この設定を使う」「テスト用」は既定のプリンタを置き換えます（CLI・AI からの印刷にも反映されます）。</p>
+    <pre class="info-box" id="device-info" hidden></pre>
+    <details>
+      <summary>プリンタ設定</summary>
+      <div class="row">
+        <label class="field-inline">ビープ <select id="set-beep"><option value="">変更しない</option><option value="1">オン</option><option value="0">オフ</option></select></label>
+        <label class="field-inline">自動電源オフ <select id="set-autooff"><option value="">変更しない</option><option value="0">しない</option><option value="15">15分</option><option value="30">30分</option><option value="60">60分</option></select></label>
+        <button type="button" class="btn ghost" id="settings-apply">適用</button>
+      </div>
+    </details>
+    <div class="row end"><button class="btn primary">閉じる</button></div>
+  </form>
+</dialog>
+
+<div class="toasts" id="toasts"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

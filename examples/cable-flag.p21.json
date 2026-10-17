@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "name": "ケーブルフラッグ",
+  "media": "14x40",
+  "elements": [
+    {"type": "text", "x": 3, "y": 4, "w": 104, "h": 88, "text": "{{label}}", "bold": true},
+    {"type": "line", "x1": 110, "y1": 4, "x2": 110, "y2": 12, "width": 1},
+    {"type": "line", "x1": 110, "y1": 84, "x2": 110, "y2": 92, "width": 1},
+    {"type": "line", "x1": 174, "y1": 4, "x2": 174, "y2": 12, "width": 1},
+    {"type": "line", "x1": 174, "y1": 84, "x2": 174, "y2": 92, "width": 1},
+    {"type": "text", "x": 177, "y": 4, "w": 104, "h": 88, "text": "{{label}}", "bold": true}
+  ],
+  "variables": {"label": "HDMI-1"},
+  "note": "中央 64 ドット (約 8 mm) をケーブルに巻き、左右を裏同士で貼り合わせる。太いケーブルは 14x50 以上を使う"
+}
