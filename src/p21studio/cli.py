@@ -104,8 +104,12 @@ def cmd_print(args) -> int:
         return EXIT_OK
     res = api.print_labels(lab, args.device, args.copies, args.density, _vars(args.var), _rows(args), force=args.force)
     lines = [f"{'印刷しました' if res['ok'] else '印刷に問題がありました'}: {res['printed']}/{res['labels']} 種類・{res['sheets']} 枚 → {res['device']}"]
+    if res.get("uncertain"):
+        lines.append(f"{', '.join(map(str, res['uncertain']))} 枚目は出ていない可能性があります（実物を確認してください）")
+    if res.get("not_sent"):
+        lines.append(f"残り {res['not_sent']} 種類は送っていません（ラベルを補充して、その分だけ印刷し直してください）")
     if res.get("error"):
-        lines.append(f"途中で止まりました（{res['printed']} 種類目まで印刷済み。再実行すると重複します）: {res['error']}")
+        lines.append(f"途中で止まりました（再実行すると重複します）: {res['error']}")
     for r in res["results"]:
         lines += [f"警告: {w}" for w in r["warnings"]]
         lines += [f"(mock) 保存: {p}" for p in r.get("mock_png", [])]

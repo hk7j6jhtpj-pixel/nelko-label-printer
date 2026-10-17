@@ -121,12 +121,16 @@ def print_labels(
             results.append(res.to_dict())
             if not res.ok:
                 break
+    good = [r for r in results if r["ok"]]
+    uncertain = [i + 1 for i, r in enumerate(results) if not r["ok"]]
     return {
-        "ok": error is None and all(r["ok"] for r in results) and len(results) == len(rendered),
+        "ok": error is None and len(good) == len(rendered),
         "device": spec,
         "labels": len(rendered),
-        "printed": len(results),
-        "sheets": len(results) * copies,
+        "printed": len(good),
+        "sheets": len(good) * copies,
+        "uncertain": uncertain,  # 1-based label numbers that may not have come out
+        "not_sent": len(rendered) - len(results),
         "error": error,
         "results": results,
         "render_warnings": list(dict.fromkeys(warnings)),

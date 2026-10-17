@@ -366,9 +366,14 @@ class FileTransport(Transport):
 class MockTransport(Transport):
     """A simulated P21. Responds like the real printer and saves printed labels as PNG."""
 
-    def __init__(self, outdir: str | None = None, battery: int = 75, print_seconds: float = 0.3) -> None:
+    settle_seconds = 0.1
+
+    def __init__(self, outdir: str | None = None, battery: int = 75, print_seconds: float = 0.3, labels_left: int | None = None) -> None:
         super().__init__()
         from .config import mock_dir
+
+        self.labels_left = labels_left  # None = endless roll
+        self._paper_out = False
 
         self.outdir = Path(outdir) if outdir else mock_dir()
         self.name = f"mock:{self.outdir}" if outdir else "mock:"
@@ -383,7 +388,9 @@ class MockTransport(Transport):
         self.jobs: list[dict] = []
 
     def _readiness(self) -> int:
-        return protocol.Readiness.BUSY if time.monotonic() < self._busy_until else protocol.Readiness.READY
+        if time.monotonic() < self._busy_until:
+            return protocol.Readiness.BUSY
+        return protocol.Readiness.OUT_OF_PAPER if self._paper_out else protocol.Readiness.READY
 
     def _write(self, data: bytes) -> None:
         self._in.extend(data)
@@ -438,6 +445,12 @@ class MockTransport(Transport):
         from PIL import Image
 
         job = dict(self._job, copies=copies)
+        if self.labels_left is not None:
+            if self.labels_left <= 0:  # like the real printer: it notices only when it tries to feed
+                self._paper_out = True
+                job.pop("bitmap", None)
+            else:
+                self.labels_left -= 1
         if "bitmap" in job:
             wb, h, data = job.pop("bitmap")
             img = Image.frombytes("1", (wb * 8, h), data)

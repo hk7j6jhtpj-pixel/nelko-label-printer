@@ -257,3 +257,23 @@ def test_render_exit_code_when_elements_fail(tmp_path, capsys):
     f = tmp_path / "l.json"
     f.write_text(json.dumps({"elements": [{"type": "image", "x": 0, "y": 0, "w": 9, "h": 9, "src": "missing.png"}]}), encoding="utf-8")
     assert main(["render", str(f), "-o", str(tmp_path / "o.png"), "--json"]) == 5
+
+
+# --- round 3: roll running out mid-batch (seen on hardware 2026-10-18) -------------
+def test_running_out_of_labels_is_reported(tmp_path, monkeypatch):
+    from p21studio import transports
+
+    made = []
+
+    def mock_with_short_roll(spec):
+        t = MockTransport(str(tmp_path), labels_left=2)
+        made.append(t)
+        return t
+
+    monkeypatch.setattr("p21studio.printer.from_spec", mock_with_short_roll)
+    lab = {"elements": [{"type": "text", "x": 0, "y": 0, "w": 200, "h": 80, "text": "{{a}}"}]}
+    res = api.print_labels(lab, "mock:", rows=[{"a": str(i)} for i in range(4)])
+    assert res["ok"] is False
+    assert res["printed"] == 2 and res["uncertain"] == [3] and res["not_sent"] == 1
+    assert any("ラベル切れ" in w for w in res["results"][2]["warnings"])
+    assert len(made[0].printed) == 2

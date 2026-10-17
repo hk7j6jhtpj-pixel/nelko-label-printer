@@ -33,6 +33,7 @@ class PrintResult:
     status: dict | None = None
     warnings: list[str] = field(default_factory=list)
     mock_png: list[str] = field(default_factory=list)
+    after_status: str | None = None
 
     def to_dict(self) -> dict:
         return dict(self.__dict__)
@@ -178,10 +179,21 @@ class P21:
         if wait:
             try:
                 code = self.wait_ready(timeout=15.0 + 5.0 * copies)
+                # The P21 notices an empty roll only after it has tried to feed, which can be
+                # a moment after it reports ready again: look again before calling it done.
+                settle = getattr(self.transport, "settle_seconds", 2.0)
+                deadline = time.monotonic() + settle
+                while code == Readiness.READY and time.monotonic() < deadline:
+                    time.sleep(min(0.5, settle))
+                    code = self.wait_ready(timeout=10.0)
                 result.finished = code == Readiness.READY
+                result.after_status = protocol.readiness_name(code)
                 if code not in (Readiness.READY, Readiness.BUSY):
                     result.ok = False
-                    warnings.append(f"印刷後の状態: {protocol.readiness_text_ja(code)}")
+                    if code == Readiness.OUT_OF_PAPER:
+                        warnings.append("印刷後にラベル切れ（またはロール末端での紙詰まり）を検知しました。この 1 枚が最後まで出たか確認してください")
+                    else:
+                        warnings.append(f"印刷後の状態: {protocol.readiness_text_ja(code)}。この 1 枚が正しく出たか確認してください")
             except TransportError as e:
                 warnings.append(f"印刷完了の確認に失敗: {e}")
 

@@ -1082,7 +1082,9 @@ async function doPrint() {
   try {
     const r = await api("/api/print", { label: S.label, values: S.values, rows: S.csv, copies: S.label.copies, density: S.label.density });
     const warn = r.results.flatMap((x) => x.warnings).concat(r.render_warnings);
-    const head = r.ok ? `印刷しました（${r.sheets} 枚）` : `印刷に問題がありました（${r.printed}/${r.labels} 種類・${r.sheets} 枚 印刷済み）`;
+    let head = r.ok ? `印刷しました（${r.sheets} 枚）` : `印刷に問題がありました（${r.printed}/${r.labels} 種類を印刷）`;
+    if (r.uncertain && r.uncertain.length) head += `\n${r.uncertain.join(", ")} 枚目は出ていない可能性があります（実物を確認してください）`;
+    if (r.not_sent) head += `\n残り ${r.not_sent} 種類は送っていません（ラベルを補充して、その分だけ印刷し直してください）`;
     toast(head + (r.error ? `\n途中で止まりました。再度印刷すると重複します: ${r.error}` : "") + (warn.length ? "\n" + [...new Set(warn)].join("\n") : ""), r.ok ? "ok" : "err", 9000);
     setDeviceUI(r.ok ? "ok" : "err", `${S.device} ・ ${r.ok ? "準備完了" : "要確認"}`, $("#device-battery").textContent);
   } catch (e) {
