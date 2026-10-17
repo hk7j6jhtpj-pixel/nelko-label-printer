@@ -43,13 +43,32 @@ def _web_file(name: str) -> bytes | None:
 
 
 def _only_data_uris(label) -> dict:
-    """The GUI embeds images as data: URIs; refuse local paths so the API cannot read files."""
+    """The GUI embeds images as data: URIs; refuse other local paths so the API cannot read files.
+
+    Exception: images inside the templates folder (assets of saved templates).
+    Checked again after variable substitution, so {{values}} cannot point elsewhere.
+    """
+    from .templates import is_template_asset
+
     if not isinstance(label, dict):
         raise labelmod.LabelError("label がありません")
     for el in label.get("elements") or []:
-        if isinstance(el, dict) and el.get("type") == "image" and el.get("src") and not str(el["src"]).startswith("data:"):
-            raise labelmod.LabelError("GUI では画像はアップロード（data: URI）のみ使えます")
+        if not (isinstance(el, dict) and el.get("type") == "image" and el.get("src")):
+            continue
+        src = str(el["src"])
+        if src.startswith("data:"):
+            continue
+        if "{{" not in src and is_template_asset(src):
+            continue
+        if "{{" in src and is_template_asset(labelmod.VAR_RE.sub("x", src)):
+            continue  # validated again after substitution
+        raise labelmod.LabelError("GUI では画像はアップロード（data: URI）のみ使えます")
     return label
+
+
+def _checked_labels(lab: dict, values, rows) -> None:
+    for l in api.expand(labelmod.normalize(lab), values, rows):
+        _only_data_uris(l)
 
 
 def safe_device(spec: str | None) -> str | None:
@@ -216,6 +235,7 @@ class Handler(BaseHTTPRequestHandler):
             body = self._body()
             if url.path == "/api/render":
                 lab = _only_data_uris(body.get("label"))
+                _checked_labels(lab, body.get("values"), None)
                 r = api.render_label(lab, body.get("values"))
                 png = base64.b64encode(r.png_bytes(1)).decode()
                 return self._json({
@@ -233,6 +253,7 @@ class Handler(BaseHTTPRequestHandler):
                 rows = body.get("rows")
                 if rows is not None and (not isinstance(rows, list) or len(rows) > 1000):
                     raise ValueError("rows は 1000 行までの配列にしてください")
+                _checked_labels(lab, body.get("values"), rows)
                 res = api.print_labels(lab, self._device(body.get("device")), body.get("copies"), body.get("density"), body.get("values"), rows)
                 return self._json(res)
             if url.path.startswith("/api/templates/"):

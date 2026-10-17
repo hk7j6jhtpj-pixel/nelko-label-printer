@@ -43,8 +43,28 @@ def _path(name: str) -> Path:
     return templates_dir() / (_check_name(name) + SUFFIX)
 
 
-def _embed_images(label: dict) -> dict:
-    """Turn local image paths into data: URIs so the template works anywhere (and in the GUI)."""
+def assets_dir(name: str) -> Path:
+    return templates_dir() / "assets" / _check_name(name)
+
+
+def is_template_asset(path: str | Path) -> bool:
+    """True if the path points inside the templates folder (safe for the GUI to read)."""
+    try:
+        Path(path).resolve().relative_to(templates_dir().resolve())
+        return True
+    except (ValueError, OSError):
+        return False
+
+
+def _embed_images(label: dict, name: str) -> dict:
+    """Make the template self-contained.
+
+    Fixed image paths become data: URIs. Paths that depend on a variable
+    (e.g. icons/{{icon}}.png) cannot be embedded, so every file matching the
+    pattern is copied into the template's asset folder and the path points there.
+    """
+    import shutil
+
     out = copy.deepcopy(label)
     base = Path(out.get("_base_dir") or ".")
     for el in out.get("elements", []):
@@ -54,6 +74,18 @@ def _embed_images(label: dict) -> dict:
         p = Path(src).expanduser()
         if not p.is_absolute():
             p = base / p
+        if "{{" in src:
+            pattern = labelmod.VAR_RE.sub("*", p.name)
+            files = sorted(p.parent.glob(pattern)) if "{{" not in str(p.parent) else []
+            if not files:
+                raise TemplateError(f"{src} に当てはまる画像が {p.parent} にありません")
+            dest = assets_dir(name)
+            dest.mkdir(parents=True, exist_ok=True)
+            for f in files:
+                if f.is_file():
+                    shutil.copy2(f, dest / f.name)
+            el["src"] = str(dest / p.name)
+            continue
         if not p.is_file():
             raise TemplateError(f"画像ファイルが見つかりません: {p}")
         mime = mimetypes.guess_type(p.name)[0] or "image/png"
@@ -99,7 +131,7 @@ def save_template(name: str, label: dict, overwrite: bool = False) -> Path:
     p = _path(name)
     if p.exists() and not overwrite:
         raise TemplateError(f"テンプレート {name!r} は既にあります（上書きするには overwrite / --force）")
-    lab = labelmod.normalize(_embed_images(labelmod.normalize(label)))
+    lab = labelmod.normalize(_embed_images(labelmod.normalize(label), name))
     lab["name"] = lab.get("name") or name
     p.parent.mkdir(parents=True, exist_ok=True)
     tmp = p.with_suffix(".tmp")
@@ -113,3 +145,6 @@ def delete_template(name: str) -> None:
     if not p.is_file():
         raise TemplateError(f"テンプレート {name!r} はありません")
     p.unlink()
+    import shutil
+
+    shutil.rmtree(templates_dir() / "assets" / _check_name(name), ignore_errors=True)

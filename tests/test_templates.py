@@ -55,3 +55,37 @@ def test_cli_and_mcp_use_templates(tmp_path, capsys):
     assert r["result"]["content"][0]["type"] == "image"
     r = s.handle({"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "p21_render", "arguments": {"template": "t1", "text": "x"}}})
     assert r["error"]["code"] == -32602
+
+
+def test_image_path_with_variable_is_kept_absolute(tmp_path):
+    icons = tmp_path / "icons"
+    icons.mkdir()
+    Image.new("L", (10, 10), 0).save(icons / "nut.png")
+    f = tmp_path / "parts.p21.json"
+    f.write_text(json.dumps({"elements": [{"type": "image", "x": 0, "y": 0, "w": 10, "h": 10, "src": "icons/{{icon}}.png"}]}), encoding="utf-8")
+    from p21studio import label as labelmod, render
+
+    templates.save_template("parts", labelmod.load(f))
+    lab = labelmod.substitute(templates.load_template("parts"), {"icon": "nut"})
+    assert not render.render(lab).errors
+
+
+def test_variable_images_are_copied_and_gui_can_use_them(tmp_path):
+    from p21studio import label as labelmod
+    from p21studio.server import _checked_labels, _only_data_uris
+
+    icons = tmp_path / "icons"
+    icons.mkdir()
+    for n in ("nut", "washer"):
+        Image.new("L", (10, 10), 0).save(icons / f"{n}.png")
+    f = tmp_path / "parts.p21.json"
+    f.write_text(json.dumps({"elements": [{"type": "image", "x": 0, "y": 0, "w": 10, "h": 10, "src": "icons/{{icon}}.png"}]}), encoding="utf-8")
+    templates.save_template("parts2", labelmod.load(f))
+    (icons / "nut.png").unlink()  # the template must not depend on the original folder
+    lab = {k: v for k, v in templates.load_template("parts2").items() if not k.startswith("_")}
+    _only_data_uris(lab)
+    _checked_labels(lab, {"icon": "nut"}, None)
+    with pytest.raises(labelmod.LabelError):
+        _checked_labels(lab, {"icon": "../../../../../../Windows/win"}, None)
+    templates.delete_template("parts2")
+    assert not (templates.templates_dir() / "assets" / "parts2").exists()
