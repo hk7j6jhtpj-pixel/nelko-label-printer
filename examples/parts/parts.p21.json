@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "name": "部品袋ラベル",
+  "media": "14x40",
+  "elements": [
+    {"type": "rect", "x": 1, "y": 1, "w": 282, "h": 94, "stroke": 2, "radius": 8},
+    {"type": "image", "x": 9, "y": 8, "w": 80, "h": 80, "src": "icons/{{icon}}.png", "dither": "threshold"},
+    {"type": "line", "x1": 97, "y1": 10, "x2": 97, "y2": 86, "width": 2},
+    {"type": "text", "x": 104, "y": 5, "w": 172, "h": 58, "text": "{{big}}", "bold": true},
+    {"type": "text", "x": 104, "y": 64, "w": 172, "h": 26, "text": "{{sub}}", "bold": true}
+  ],
+  "variables": {"icon": "screw", "big": "M3", "sub": "ねじ ピッチ0.5"}
+}
