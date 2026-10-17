@@ -183,6 +183,19 @@ class Handler(BaseHTTPRequestHandler):
                     "fonts_preferred": fonts.available_preferred(),
                     "example": labelmod.EXAMPLE,
                 })
+            if url.path == "/api/templates":
+                from . import templates
+
+                items = []
+                for t in templates.list_templates():
+                    if "error" not in t:
+                        try:
+                            t["png"] = "data:image/png;base64," + base64.b64encode(api.render_label(templates.load_template(t["name"])).png_bytes(1)).decode()
+                        except Exception:
+                            t["png"] = None
+                    t.pop("path", None)
+                    items.append(t)
+                return self._json({"ok": True, "templates": items})
             if url.path == "/api/fonts":
                 return self._json({"families": fonts.families(refresh=q.get("refresh") == "1")})
             if url.path == "/api/info":
@@ -222,6 +235,23 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError("rows は 1000 行までの配列にしてください")
                 res = api.print_labels(lab, self._device(body.get("device")), body.get("copies"), body.get("density"), body.get("values"), rows)
                 return self._json(res)
+            if url.path.startswith("/api/templates/"):
+                from . import templates
+
+                action = url.path.rsplit("/", 1)[1]
+                name = str(body.get("name") or "")
+                if action == "load":
+                    return self._json({"ok": True, "label": {k: v for k, v in templates.load_template(name).items() if not k.startswith("_")}})
+                if action == "save":
+                    lab = _only_data_uris(body.get("label"))
+                    templates.save_template(name, lab, overwrite=bool(body.get("overwrite")))
+                    return self._json({"ok": True, "name": name})
+                if action == "delete":
+                    templates.delete_template(name)
+                    return self._json({"ok": True, "name": name})
+                if action == "exists":
+                    return self._json({"ok": True, "exists": templates.exists(name)})
+                return self._send(404, b"not found", "text/plain")
             if url.path == "/api/device":
                 dev = safe_device(body.get("device"))
                 config.set_value("device", dev)

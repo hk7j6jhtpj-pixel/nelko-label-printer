@@ -16,6 +16,10 @@ You can design a label as JSON, render it to PNG to check it visually, and print
    - Not ready (exit code 3): tell the user (lid open / no labels). Connection error (exit 4): ask them to power on / pair, or run `p21 scan`.
    - Use `-d mock:` to test without a printer; the "printed" PNG path is in `results[].mock_png`.
 
+Saved templates: `p21 template list --json` shows the user's templates and their `{{variables}}`;
+print one with `p21 print -T <name> --var key=value` (or `--csv`). Save a reusable design with
+`p21 template save <name> <file>` (refuses to overwrite unless `--force`; ask before overwriting).
+
 Quick one-offs: `p21 print -t "text\nsecond line"` or `p21 print image.png`.
 
 ## Canvas and units
@@ -45,7 +49,8 @@ Quick one-offs: `p21 print -t "text\nsecond line"` or `p21 print image.png`.
 ## MCP
 
 `p21 mcp` runs an MCP server on stdio with tools `p21_label_format`, `p21_render` (returns the PNG),
-`p21_print`, `p21_status`, `p21_scan`, `p21_fonts`, `p21_save_label`, `p21_load_label`.
+`p21_print`, `p21_status`, `p21_scan`, `p21_fonts`, `p21_list_templates`, `p21_save_template`,
+`p21_save_label`, `p21_load_label`. `p21_render` / `p21_print` accept `template` instead of `label`.
 Register with Claude Code: `claude mcp add p21 -- p21 mcp`.
 
 ## Code map (for changing the tool itself)

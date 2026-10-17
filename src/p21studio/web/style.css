@@ -106,6 +106,16 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent-soft
 .templates { display: flex; flex-direction: column; gap: 6px; }
 .templates button { text-align: left; border: 1px solid var(--line); border-radius: 8px; background: transparent; padding: 7px 10px; cursor: pointer; font-size: 13px; }
 .templates button:hover { border-color: var(--accent); }
+.my-templates { display: flex; flex-direction: column; gap: 6px; }
+.my-templates .empty { font-size: 12px; color: var(--muted); line-height: 1.6; }
+.tpl { position: relative; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; cursor: pointer; background: transparent; text-align: left; width: 100%; }
+.tpl:hover { border-color: var(--accent); }
+.tpl img { display: block; width: 100%; max-height: 64px; object-fit: contain; image-rendering: pixelated; background: #fff; border-radius: 3px; margin-bottom: 4px; }
+.tpl .tpl-name { font-size: 13px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 18px; }
+.tpl .tpl-meta { font-size: 11px; color: var(--muted); }
+.tpl .tpl-del { position: absolute; right: 4px; bottom: 4px; border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 14px; padding: 2px 5px; border-radius: 5px; }
+.tpl .tpl-del:hover { color: var(--danger); background: var(--panel-2); }
+.save-tpl { width: 100%; margin-top: 6px; }
 .layers { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column-reverse; gap: 3px; }
 .layers li { display: flex; gap: 6px; align-items: center; padding: 6px 8px; border-radius: 7px; cursor: pointer; font-size: 13px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .layers li:hover { background: var(--panel-2); }

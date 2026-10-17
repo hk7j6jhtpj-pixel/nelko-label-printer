@@ -80,6 +80,27 @@ p21 fonts ゴシック                             # 使えるフォント
 | 4 | 接続できない |
 | 5 | ラベル JSON の誤り・描画できない要素がある（`--force` で無視） / validate で警告あり |
 
+## テンプレート
+
+よく使うデザインはテンプレートとして保存できます。GUI・CLI・AI（MCP）で共通です。
+
+- **GUI**: 左の「＋ 今のデザインを保存」で登録し、「マイテンプレート」からクリックで呼び出します（✕ で削除）
+- **CLI**:
+
+  ```bash
+  p21 template save 作り置き label.p21.json     # 登録（同名は --force で上書き）
+  p21 template list                             # 一覧
+  p21 print -T 作り置き --var 品名=カレー        # テンプレートで印刷
+  p21 print -T 備品タグ --csv assets.csv         # CSV で一括
+  p21 template delete 作り置き
+  ```
+
+- **AI**: MCP の `p21_list_templates` / `p21_save_template`、`p21_render` / `p21_print` の `template` 引数
+
+テンプレートの中身はふつうのラベル JSON で、設定フォルダの `templates/` に入ります（`p21 template list` で場所を表示）。
+環境変数 `P21_TEMPLATES_DIR` で別のフォルダ（クラウド同期フォルダなど）を指定すると、複数の PC で共有できます。
+画像は保存時にファイルへ埋め込まれるので、元の画像を消しても使えます。
+
 ## ラベル形式（.p21.json）
 
 座標は**ドット**（203 dpi、約 8 ドット = 1 mm）。14×40 mm の横長キャンバスは **284×96**。
@@ -109,7 +130,7 @@ p21 fonts ゴシック                             # 使えるフォント
   claude mcp add p21 -- p21 mcp
   ```
 
-  ツール: `p21_label_format` / `p21_render`（プレビュー画像を返す）/ `p21_print` / `p21_status` / `p21_scan` / `p21_fonts` / `p21_save_label` / `p21_load_label`
+  ツール: `p21_label_format` / `p21_render`（プレビュー画像を返す）/ `p21_print` / `p21_status` / `p21_scan` / `p21_fonts` / `p21_list_templates` / `p21_save_template` / `p21_save_label` / `p21_load_label`
 - AI 向けの説明は [AGENTS.md](AGENTS.md)、Claude Code 用スキルは [.claude/skills/p21-label/](.claude/skills/p21-label/SKILL.md)
 
 ## 仕組み

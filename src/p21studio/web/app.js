@@ -894,6 +894,59 @@ function renderTemplates() {
   }
 }
 
+// ---------------------------------------------------------------- user templates (saved on the server)
+async function loadMyTemplates() {
+  const box = $("#my-templates");
+  let list = [];
+  try { list = (await api("/api/templates")).templates; } catch (e) { box.innerHTML = `<p class="empty">読み込めません: ${esc(e.message)}</p>`; return; }
+  box.innerHTML = "";
+  if (!list.length) {
+    box.innerHTML = '<p class="empty">よく使うデザインを「今のデザインを保存」で登録すると、ここからすぐ呼び出せます（CLI や AI からも使えます）。</p>';
+    return;
+  }
+  for (const t of list) {
+    const item = document.createElement("div");
+    item.className = "tpl";
+    item.title = t.error ? t.error : `${t.media.width_mm}×${t.media.length_mm} mm` + (t.variables.length ? `\n変数: ${t.variables.join(", ")}` : "");
+    item.innerHTML = (t.png ? `<img src="${t.png}" alt="">` : "") +
+      `<span class="tpl-name">${esc(t.name)}</span>` +
+      `<span class="tpl-meta">${t.error ? "読めません" : `${t.media.width_mm}×${t.media.length_mm}` + (t.variables.length ? ` ・ {{${esc(t.variables.join("}} {{"))}}}` : "")}</span>`;
+    const del = document.createElement("button");
+    del.className = "tpl-del";
+    del.title = "このテンプレートを削除";
+    del.textContent = "✕";
+    del.onclick = async (e) => {
+      e.stopPropagation();
+      if (!confirm(`テンプレート「${t.name}」を削除しますか？（元に戻せません）`)) return;
+      try { await api("/api/templates/delete", { name: t.name }); toast(`「${t.name}」を削除しました`, "ok"); loadMyTemplates(); } catch (err) { toast(err.message, "err"); }
+    };
+    item.appendChild(del);
+    item.onclick = async () => {
+      if (t.error) return toast(t.error, "err");
+      if (S.label.elements.length && !confirm(`今のデザインを「${t.name}」で置き換えますか？（元に戻すで戻せます）`)) return;
+      try {
+        const r = await api("/api/templates/load", { name: t.name });
+        loadLabel(r.label);
+        toast(`「${t.name}」を読み込みました` + (t.variables.length ? "。差し込み欄に値を入れてください" : ""), "ok");
+      } catch (err) { toast(err.message, "err"); }
+    };
+    box.appendChild(item);
+  }
+}
+
+async function saveAsTemplate() {
+  if (!S.label.elements.length) return toast("要素がないので保存できません", "err");
+  const name = (prompt("テンプレート名", S.label.name || "") || "").trim();
+  if (!name) return;
+  try {
+    const ex = await api("/api/templates/exists", { name });
+    if (ex.exists && !confirm(`「${name}」は既にあります。上書きしますか？`)) return;
+    await api("/api/templates/save", { name, label: { ...S.label, name }, overwrite: ex.exists });
+    toast(`テンプレート「${name}」を保存しました`, "ok");
+    loadMyTemplates();
+  } catch (e) { toast("保存できませんでした: " + e.message, "err"); }
+}
+
 // ---------------------------------------------------------------- printer
 function setDeviceUI(state, label, battery = "") {
   $("#device-dot").className = "dot " + (state || "");
@@ -1152,6 +1205,8 @@ async function main() {
   S.values = { ...(S.label.variables || {}) };
   bind();
   renderTemplates();
+  loadMyTemplates();
+  $("#save-template").onclick = saveAsTemplate;
   changed(true);
   S.history = [];
   updateUndo();

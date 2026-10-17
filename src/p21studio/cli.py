@@ -33,7 +33,7 @@ def _vars(pairs: list[str] | None) -> dict:
 
 
 def _source(args) -> dict:
-    return api.load_source(args.source, text=args.text, image=args.image, media=args.media, font=args.font, vertical=args.vertical)
+    return api.load_source(args.source, text=args.text, image=args.image, media=args.media, font=args.font, vertical=args.vertical, template=args.template)
 
 
 def _rows(args) -> list[dict] | None:
@@ -209,6 +209,43 @@ def cmd_example(args) -> int:
     return EXIT_OK
 
 
+def cmd_template(args) -> int:
+    from . import templates
+
+    action = args.action
+    if action == "list":
+        items = templates.list_templates()
+        lines = [f"テンプレートの保存先: {templates.templates_dir()}"]
+        for t in items:
+            if "error" in t:
+                lines.append(f"  {t['name']}  （読めません: {t['error']}）")
+                continue
+            m = t["media"]
+            v = f"  変数: {', '.join(t['variables'])}" if t["variables"] else ""
+            lines.append(f"  {t['name']:<20} {m['width_mm']}x{m['length_mm']} mm {t['orientation']}{v}")
+        if not items:
+            lines.append("  （まだありません。p21 template save <名前> <ラベル.json> で追加）")
+        _out(args, {"dir": str(templates.templates_dir()), "templates": items}, "\n".join(lines))
+        return EXIT_OK
+    if not args.name:
+        print("テンプレート名を指定してください", file=sys.stderr)
+        return EXIT_USAGE
+    if action == "show":
+        print(labelmod.dump(templates.load_template(args.name)))
+        return EXIT_OK
+    if action == "delete":
+        templates.delete_template(args.name)
+        _out(args, {"ok": True, "deleted": args.name}, f"テンプレート {args.name} を削除しました")
+        return EXIT_OK
+    # save
+    if not args.file:
+        print("保存するラベル JSON を指定してください: p21 template save <名前> <ラベル.json>", file=sys.stderr)
+        return EXIT_USAGE
+    path = templates.save_template(args.name, labelmod.load(args.file), overwrite=args.force)
+    _out(args, {"ok": True, "name": args.name, "path": str(path)}, f"テンプレート {args.name} を保存しました: {path}")
+    return EXIT_OK
+
+
 def cmd_validate(args) -> int:
     lab = labelmod.load(args.source)
     r = api.render_label(lab)
@@ -243,6 +280,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     src = argparse.ArgumentParser(add_help=False)
     src.add_argument("source", nargs="?", help="ラベル JSON（- で標準入力）または画像ファイル")
+    src.add_argument("-T", "--template", help="保存済みテンプレートを使う（p21 template list）")
     src.add_argument("-t", "--text", help="テキストだけのラベルを作る（\\n で改行）")
     src.add_argument("-i", "--image", help="画像だけのラベルを作る")
     src.add_argument("-m", "--media", choices=list(labelmod.MEDIA_PRESETS), help="ラベルサイズ（既定 14x40）")
@@ -301,6 +339,13 @@ def build_parser() -> argparse.ArgumentParser:
     s.set_defaults(func=cmd_schema)
     s = sub.add_parser("example", parents=[common], help="ラベル JSON の例を出力")
     s.set_defaults(func=cmd_example)
+
+    s = sub.add_parser("template", parents=[common], help="テンプレートの一覧・保存・削除")
+    s.add_argument("action", choices=["list", "save", "show", "delete"])
+    s.add_argument("name", nargs="?", help="テンプレート名")
+    s.add_argument("file", nargs="?", help="save: 保存するラベル JSON")
+    s.add_argument("--force", action="store_true", help="save: 同名を上書き")
+    s.set_defaults(func=cmd_template)
 
     s = sub.add_parser("validate", parents=[common], help="ラベル JSON を検査")
     s.add_argument("source")

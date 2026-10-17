@@ -34,8 +34,15 @@ def resolve_device(spec: str | None = None, scan_ble: bool = True) -> str:
     )
 
 
-def load_source(source: str | None = None, text: str | None = None, image: str | None = None, media: str | None = None, font: str = "auto", vertical: bool = False) -> dict:
-    """Build a label from a .json file, an image file, or plain text."""
+def load_source(source: str | None = None, text: str | None = None, image: str | None = None, media: str | None = None, font: str = "auto", vertical: bool = False, template: str | None = None) -> dict:
+    """Build a label from a saved template, a .json file, an image file, or plain text."""
+    if template:
+        from .templates import load_template
+
+        lab = load_template(template)
+        if media:
+            lab["media"] = dict(labelmod.MEDIA_PRESETS[media])
+        return lab
     if text is not None:
         return text_label(text.replace("\\n", "\n"), media or "14x40", font=font, vertical=vertical)
     if image is not None or (source and Path(source).suffix.lower() in IMAGE_EXTS):

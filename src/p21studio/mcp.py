@@ -56,8 +56,13 @@ def _int(args: dict, key: str, default: int | None, lo: int, hi: int) -> int | N
 
 
 def _label_arg(args: dict) -> dict:
-    if args.get("label") and args.get("text") is not None:
-        raise InvalidParams("pass either `label` or `text`, not both")
+    given = [k for k in ("label", "text", "template") if args.get(k) not in (None, "")]
+    if len(given) > 1:
+        raise InvalidParams(f"pass only one of label / text / template (got {', '.join(given)})")
+    if args.get("template"):
+        from .templates import load_template
+
+        return load_template(str(args["template"]))
     if args.get("text") is not None:
         media = args.get("media") or "14x40"
         if media not in labelmod.MEDIA_PRESETS:
@@ -82,6 +87,7 @@ def _label_schema() -> dict:
 
 LABEL_PROP = _label_schema()
 TEXT_PROP = {"type": "string", "description": "Shortcut: a plain text label (auto-sized, bold) instead of `label`. Use `\\n` for line breaks."}
+TEMPLATE_PROP = {"type": "string", "description": "Name of a saved template (see p21_list_templates) instead of `label`; fill its {{variables}} with `variables`/`rows`"}
 MEDIA_PROP = {"enum": list(labelmod.MEDIA_PRESETS), "default": "14x40", "description": "Label roll size for `text` (ignored with `label`)"}
 VARS_PROP = {"type": "object", "additionalProperties": {"type": "string"}, "description": "Values for {{name}} placeholders"}
 DEVICE_PROP = {"type": "string", "description": "Printer spec, e.g. ble:AA:BB:CC:DD:EE:FF, rfcomm:AA:BB:CC:DD:EE:FF, serial:COM5, mock: (simulated). Omit to use the server's default."}
@@ -103,6 +109,7 @@ TOOLS = [
             "properties": {
                 "label": LABEL_PROP,
                 "text": TEXT_PROP,
+                "template": TEMPLATE_PROP,
                 "media": MEDIA_PROP,
                 "variables": VARS_PROP,
                 "scale": {"type": "integer", "default": 3, "minimum": 1, "maximum": 8, "description": "Preview magnification"},
@@ -124,6 +131,7 @@ TOOLS = [
             "properties": {
                 "label": LABEL_PROP,
                 "text": TEXT_PROP,
+                "template": TEMPLATE_PROP,
                 "media": MEDIA_PROP,
                 "variables": VARS_PROP,
                 "rows": {"type": "array", "items": VARS_PROP, "maxItems": 500, "description": "Batch: one label per item"},
@@ -154,6 +162,24 @@ TOOLS = [
         "description": "List installed font families usable in the `font` field of text elements.",
         "inputSchema": {"type": "object", "properties": {"query": {"type": "string", "description": "Case-insensitive filter"}}},
         "annotations": {"readOnlyHint": True, "openWorldHint": False},
+    },
+    {
+        "name": "p21_list_templates",
+        "title": "List saved templates",
+        "description": "List the user's saved label templates (name, media, {{variables}}). Use one with `template` in p21_render / p21_print.",
+        "inputSchema": {"type": "object", "properties": {}},
+        "annotations": {"readOnlyHint": True, "openWorldHint": False},
+    },
+    {
+        "name": "p21_save_template",
+        "title": "Save a template",
+        "description": "Save a label design as a reusable template (also shown in the GUI). Put {{placeholders}} where values change. Refuses to replace an existing template unless overwrite=true.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"name": {"type": "string", "maxLength": 60}, "label": LABEL_PROP, "overwrite": {"type": "boolean", "default": False}},
+            "required": ["name", "label"],
+        },
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "openWorldHint": False},
     },
     {
         "name": "p21_save_label",
@@ -226,6 +252,17 @@ class Server:
         if name == "p21_fonts":
             q = str(args.get("query") or "").lower()
             return [_text({"auto": fonts.describe("auto"), "preferred": fonts.available_preferred(), "families": [f for f in fonts.families() if q in f.lower()]})]
+        if name == "p21_list_templates":
+            from . import templates
+
+            return [_text({"dir": str(templates.templates_dir()), "templates": [{k: v for k, v in t.items() if k != "path"} for t in templates.list_templates()]})]
+        if name == "p21_save_template":
+            from . import templates
+
+            if not isinstance(args.get("name"), str):
+                raise InvalidParams("name must be a string")
+            path = templates.save_template(args["name"], _label_arg({"label": args.get("label")}), overwrite=bool(args.get("overwrite")))
+            return [_text({"ok": True, "name": args["name"], "path": str(path)})]
         if name == "p21_save_label":
             path = Path(str(args.get("path") or "")).expanduser()
             if path.suffix.lower() != ".json":
