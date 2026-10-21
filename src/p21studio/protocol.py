@@ -107,10 +107,10 @@ class Readiness(IntEnum):
 
 
 READINESS_TEXT = {
-    0: ("ready", "準備完了"),
-    1: ("lid_open", "カバーが開いています"),
-    4: ("out_of_paper", "ラベルがありません"),
-    32: ("busy", "印刷中"),
+    0: ("ready", "Ready"),
+    1: ("lid_open", "Cover is open"),
+    4: ("out_of_paper", "Out of labels"),
+    32: ("busy", "Printing"),
 }
 
 PAPER_COLORS = {0: "unknown", 2: "transparent", 3: "white", 4: "pink", 5: "blue", 6: "yellow"}
@@ -122,7 +122,7 @@ def readiness_name(code: int) -> str:
 
 
 def readiness_text_ja(code: int) -> str:
-    return READINESS_TEXT.get(code, ("", f"不明な状態 ({code})"))[1]
+    return READINESS_TEXT.get(code, ("", f"Unknown status ({code})"))[1]
 
 
 class ProtocolError(Exception):

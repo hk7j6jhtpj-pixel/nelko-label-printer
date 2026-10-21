@@ -19,7 +19,7 @@ class PrinterError(Exception):
 class PrinterNotReady(PrinterError):
     def __init__(self, code: int):
         self.code = code
-        super().__init__(f"プリンタが印刷できる状態ではありません: {protocol.readiness_text_ja(code)} ({protocol.readiness_name(code)})")
+        super().__init__(f"Printer is not ready: {protocol.readiness_text_ja(code)} ({protocol.readiness_name(code)})")
 
 
 @dataclass
@@ -63,7 +63,7 @@ class P21:
 
     def _require_interactive(self) -> None:
         if not self.transport.interactive:
-            raise PrinterError(f"{self.device} はプリンタから応答を受け取れません")
+            raise PrinterError(f"No response from printer on {self.device}")
 
     # queries ---------------------------------------------------------------
     def readiness(self, timeout: float = 3.0) -> int:
@@ -72,7 +72,7 @@ class P21:
         self.transport.write(protocol.CMD_READINESS)
         resp = self.transport.read_exact(1, timeout)
         if not resp:
-            raise TransportError("プリンタから応答がありません（電源・接続を確認してください）")
+            raise TransportError("No response from printer. Check power and connection.")
         return resp[0]
 
     def status(self, timeout: float = 3.0) -> protocol.Status:
@@ -81,7 +81,7 @@ class P21:
         self.transport.write(protocol.CMD_STATUS)
         resp = self.transport.read_exact(protocol.STATUS_LEN, timeout)
         if not resp:
-            raise TransportError("プリンタから応答がありません（電源・接続を確認してください）")
+            raise TransportError("No response from printer. Check power and connection.")
         return protocol.parse_status(resp)
 
     def battery(self, timeout: float = 3.0) -> protocol.Battery:
@@ -172,9 +172,9 @@ class P21:
                 result.status = st.to_dict()
                 result.acknowledged = True
             except protocol.ProtocolError as e:
-                warnings.append(f"応答を解釈できませんでした: {e}")
+                warnings.append(f"Could not parse response: {e}")
         else:
-            warnings.append("ジョブ送信後にプリンタの応答がありませんでした（印刷されたかは実物を確認してください）")
+            warnings.append("No response from printer after sending job. Check the label to see if it printed.")
 
         if wait:
             try:
@@ -191,11 +191,11 @@ class P21:
                 if code not in (Readiness.READY, Readiness.BUSY):
                     result.ok = False
                     if code == Readiness.OUT_OF_PAPER:
-                        warnings.append("印刷後にラベル切れ（またはロール末端での紙詰まり）を検知しました。この 1 枚が最後まで出たか確認してください")
+                        warnings.append("Out of labels (or jam at end of roll) detected after printing. Check that this label came out fully.")
                     else:
-                        warnings.append(f"印刷後の状態: {protocol.readiness_text_ja(code)}。この 1 枚が正しく出たか確認してください")
+                        warnings.append(f"Status after printing: {protocol.readiness_text_ja(code)}. Check that this label printed correctly.")
             except TransportError as e:
-                warnings.append(f"印刷完了の確認に失敗: {e}")
+                warnings.append(f"Could not confirm print completion: {e}")
 
         mock_printed = getattr(self.transport, "printed", None)
         if mock_printed:

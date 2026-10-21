@@ -69,21 +69,21 @@ def render(label: dict, base_dir: str | Path | None = None) -> RenderResult:
     res = RenderResult(canvas, label)
 
     for ph in dict.fromkeys(unresolved(label)):
-        res.warnings.append(f"{ph} に値がありません（そのまま印字されます）")
+        res.warnings.append(f"{ph} has no value (printed as is)")
 
     for i, el in enumerate(label["elements"]):
         t = el["type"]
         res.boxes.append({"index": i, "type": t, "x": el["x"], "y": el["y"], "w": el["w"], "h": el["h"]})
         if el["x"] < 0 or el["y"] < 0 or el["x"] + el["w"] > W or el["y"] + el["h"] > H:
-            res.warnings.append(f"elements[{i}] ({t}) がラベルの印字範囲 {W}x{H} からはみ出しています")
+            res.warnings.append(f"elements[{i}] ({t}) overflows the label print area {W}x{H}")
         for k in unknown_keys(el):
-            res.warnings.append(f"elements[{i}] ({t}) の {k!r} は使われない項目です（綴り間違い？）")
+            res.warnings.append(f"elements[{i}] ({t}) has unused key {k!r} (typo?)")
         if t in ("text", "barcode") and not fonts.exists(el.get("font")):
-            res.warnings.append(f"elements[{i}] ({t}) のフォント {el.get('font')!r} が見つからないので標準フォントを使います")
+            res.warnings.append(f"elements[{i}] ({t}) font {el.get('font')!r} not found, using the default font")
         fill = 0 if el["color"] == "black" else 255
         try:
             if t not in ("rect", "ellipse", "line") and (el["w"] > 4 * W + 100 or el["h"] > 4 * H + 100):
-                raise SkipElement(f"枠が大きすぎます（{el['w']}x{el['h']}、ラベルは {W}x{H}）")
+                raise SkipElement(f"Box too large ({el['w']}x{el['h']}, label is {W}x{H})")
             if t in ("rect", "ellipse", "line"):
                 mask = Image.new("L", (W, H), 0)
                 _draw_shape(ImageDraw.Draw(mask), el)
@@ -100,11 +100,11 @@ def render(label: dict, base_dir: str | Path | None = None) -> RenderResult:
                 mask = mask.transpose({90: Image.Transpose.ROTATE_270, 180: Image.Transpose.ROTATE_180, 270: Image.Transpose.ROTATE_90}[rot])
             canvas.paste(fill, (el["x"], el["y"]), mask)
         except SkipElement as e:
-            msg = f"elements[{i}] ({t}) を描画できません: {e}"
+            msg = f"elements[{i}] ({t}) cannot be rendered: {e}"
             res.errors.append(msg)
             res.warnings.append(msg)
         except Exception as e:  # keep rendering the rest of the label
-            msg = f"elements[{i}] ({t}) を描画できません: {type(e).__name__}: {e}"
+            msg = f"elements[{i}] ({t}) cannot be rendered: {type(e).__name__}: {e}"
             res.errors.append(msg)
             res.warnings.append(msg)
 
@@ -262,7 +262,7 @@ def _render_text(el: dict, w: int, h: int, base: Path, warnings: list[str], i: i
             found = first_fit(lo)
         if found is None:
             size = lo
-            warnings.append(f"elements[{i}] (text) の文字が最小サイズ {lo}px でも枠に収まりません")
+            warnings.append(f"elements[{i}] (text) does not fit the box even at the minimum size {lo}px")
         else:
             lo = found
             while lo < hi:
@@ -281,15 +281,15 @@ def _render_text(el: dict, w: int, h: int, base: Path, warnings: list[str], i: i
         size = int(el["size"])
         break_words = True
         if not fits(size):
-            warnings.append(f"elements[{i}] (text) の文字がサイズ {size}px では枠からはみ出します")
+            warnings.append(f"elements[{i}] (text) overflows the box at size {size}px")
 
     face, lines, pitch, width, height = layout(text, el, size, w, h)
     el["_size"] = size
     if size < 10:
-        warnings.append(f"elements[{i}] (text) の文字が {size}px と小さく、印刷すると読みにくい可能性があります")
+        warnings.append(f"elements[{i}] (text) is small at {size}px and may be hard to read when printed")
     missing = fonts.missing_glyphs(face.font, text)
     if missing:
-        warnings.append(f"elements[{i}] (text) のフォントに無い文字があり、□ で印字されます: {''.join(missing[:10])}")
+        warnings.append(f"elements[{i}] (text) has characters missing from the font, printed as □: {''.join(missing[:10])}")
     d = ImageDraw.Draw(mask)
     va = el["valign"]
     y0 = 0 if va == "top" else (h - height) if va == "bottom" else (h - height) / 2
@@ -345,18 +345,18 @@ def _render_qr(el: dict, w: int, h: int, base: Path, warnings: list[str], i: int
     import segno
 
     if not el["data"]:
-        raise SkipElement("QR の内容 (data) が空です")
+        raise SkipElement("QR data is empty")
     try:
         qr = segno.make(el["data"], error=el["ecc"].lower(), micro=False, boost_error=False)
     except segno.DataOverflowError:
-        raise SkipElement(f"QR に入りきらない長さです（{len(el['data'])} 文字）。内容を短くするか誤り訂正を L にしてください")
+        raise SkipElement(f"Too long for a QR code ({len(el['data'])} characters). Shorten the data or set error correction to L.")
     rows = [list(r) for r in qr.matrix_iter(scale=1, border=max(0, el["border"]))]
     n = len(rows)
     px = min(w, h) // n
     if px < 1:
-        raise SkipElement(f"QR の枠が小さすぎます（{n} モジュールに最低 {n}px、読み取りには {2 * n}px 以上必要）")
+        raise SkipElement(f"QR box too small ({n} modules need at least {n}px; scanning needs {2 * n}px or more)")
     if px < 2:
-        warnings.append(f"elements[{i}] (qr) のモジュールが 1px です。読み取れない可能性があります（枠を {2 * n}px 以上に）")
+        warnings.append(f"elements[{i}] (qr) has 1px per module. It may not scan (make the box {2 * n}px or more)")
     mask = Image.new("L", (w, h), 0)
     d = ImageDraw.Draw(mask)
     ox, oy = (w - n * px) // 2, (h - n * px) // 2
@@ -382,7 +382,7 @@ def _barcode_pattern(symbology: str, data: str) -> tuple[str, str]:
         except BarcodeError:
             continue
     if cls is None:
-        raise SkipElement(f"未対応のバーコード種類です: {symbology}（{', '.join(barcode.PROVIDED_BARCODES)}）")
+        raise SkipElement(f"Unsupported barcode type: {symbology} ({', '.join(barcode.PROVIDED_BARCODES)})")
     try:
         try:
             bc = cls(data, writer=None)
@@ -390,25 +390,25 @@ def _barcode_pattern(symbology: str, data: str) -> tuple[str, str]:
             bc = cls(data)
         modules = "".join(bc.build())
     except Exception as e:
-        hint = "数字 12〜13 桁" if "ean13" in cls.__name__.lower() or "jan" in raw else "数字 7〜8 桁" if "8" in raw else "使える文字"
-        raise SkipElement(f"{symbology} に使えない内容です（{hint}を確認してください: {e}）")
+        hint = "12-13 digits" if "ean13" in cls.__name__.lower() or "jan" in raw else "7-8 digits" if "8" in raw else "allowed characters"
+        raise SkipElement(f"Invalid content for {symbology} (check {hint}: {e})")
     return modules, bc.get_fullcode()
 
 
 def _render_barcode(el: dict, w: int, h: int, base: Path, warnings: list[str], i: int) -> Image.Image | None:
     if not el["data"]:
-        raise SkipElement("バーコードの内容 (data) が空です")
+        raise SkipElement("Barcode data is empty")
     modules, human = _barcode_pattern(el["symbology"], el["data"])
     given = el["data"].strip()
     digits = lambda v: "".join(c for c in str(v) if c.isalnum())  # noqa: E731
     if not digits(human).startswith(digits(given)):
-        warnings.append(f"elements[{i}] (barcode) の内容 {given} は {human} として印字されます（チェックデジットや桁数を確認してください）")
+        warnings.append(f"elements[{i}] (barcode) content {given} will be printed as {human} (check the check digit and length)")
     n = len(modules)
     px = w // n
     if px < 1:
-        raise SkipElement(f"バーコードの幅が足りません（{n} モジュールに最低 {n}px、推奨 {2 * n}px）")
+        raise SkipElement(f"Barcode too narrow ({n} modules need at least {n}px, recommended {2 * n}px)")
     if px < 2:
-        warnings.append(f"elements[{i}] (barcode) は 1 モジュール 1px です。読み取れない可能性があります（幅 {2 * n}px 以上を推奨）")
+        warnings.append(f"elements[{i}] (barcode) has 1px per module. It may not scan (width {2 * n}px or more recommended)")
     mask = Image.new("L", (w, h), 0)
     d = ImageDraw.Draw(mask)
     text_h = 0
@@ -449,14 +449,14 @@ def open_image_source(src: str, base: Path) -> Image.Image:
             if not p.is_absolute():
                 p = base / p
             if not p.is_file():
-                raise SkipElement(f"画像ファイルが見つかりません: {p}")
+                raise SkipElement(f"Image file not found: {p}")
             img = Image.open(p)
         img.load()
         return img
     except SkipElement:
         raise
     except (OSError, ValueError, Image.DecompressionBombError) as e:
-        raise SkipElement(f"画像を読み込めません: {e}")
+        raise SkipElement(f"Cannot load image: {e}")
 
 
 def _to_gray_alpha(img: Image.Image) -> tuple[Image.Image, Image.Image | None]:
@@ -476,7 +476,7 @@ def _to_gray_alpha(img: Image.Image) -> tuple[Image.Image, Image.Image | None]:
 
 def _render_image(el: dict, w: int, h: int, base: Path, warnings: list[str], i: int) -> Image.Image | None:
     if not el["src"]:
-        raise SkipElement("画像 (src) が指定されていません")
+        raise SkipElement("Image src is not set")
     img = open_image_source(el["src"], base)
     try:
         img = ImageOps.exif_transpose(img)

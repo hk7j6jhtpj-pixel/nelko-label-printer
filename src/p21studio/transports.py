@@ -125,7 +125,7 @@ class SerialTransport(Transport):
         try:
             self._ser = serial.Serial(self.port, self.baudrate, timeout=0.1, write_timeout=10)
         except serial.SerialException as e:
-            raise TransportError(f"シリアルポート {self.port} を開けません: {e}") from e
+            raise TransportError(f"Cannot open serial port {self.port}: {e}") from e
 
     def _close(self) -> None:
         if self._ser:
@@ -137,7 +137,7 @@ class SerialTransport(Transport):
                 self._ser.write(data[i : i + 512])
             self._ser.flush()
         except Exception as e:  # serial.SerialTimeoutException etc.
-            raise TransportError(f"書き込みに失敗しました: {e}") from e
+            raise TransportError(f"Write failed: {e}") from e
 
     def _read_some(self, timeout: float) -> bytes:
         self._ser.timeout = timeout
@@ -155,7 +155,7 @@ class RfcommTransport(Transport):
     def __init__(self, address: str, channel: int = 1, connect_timeout: float = 10.0) -> None:
         super().__init__()
         if not MAC_RE.match(address):
-            raise TransportError(f"Bluetooth アドレスの形式が不正です: {address}")
+            raise TransportError(f"Invalid Bluetooth address: {address}")
         self.address = address.upper()
         self.channel = channel
         self.connect_timeout = connect_timeout
@@ -165,8 +165,8 @@ class RfcommTransport(Transport):
     def _open(self) -> None:
         if not hasattr(socket, "AF_BLUETOOTH") or not hasattr(socket, "BTPROTO_RFCOMM"):
             raise TransportError(
-                "この OS の Python は Bluetooth RFCOMM ソケットに対応していません"
-                "（macOS など）。serial: か ble: を使ってください。"
+                "This OS's Python does not support Bluetooth RFCOMM sockets "
+                "(e.g. macOS). Use serial: or ble:."
             )
         sock = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOMM)
         sock.settimeout(self.connect_timeout)
@@ -175,8 +175,8 @@ class RfcommTransport(Transport):
         except OSError as e:
             sock.close()
             raise TransportError(
-                f"{self.address} に接続できません: {e}\n"
-                "プリンタの電源・ペアリングを確認してください。BLE 専用機の場合は ble: を使います。"
+                f"Cannot connect to {self.address}: {e}\n"
+                "Check printer power and pairing. For BLE-only models, use ble:."
             ) from e
         self._sock = sock
 
@@ -193,19 +193,19 @@ class RfcommTransport(Transport):
             for i in range(0, len(data), 512):
                 self._sock.sendall(data[i : i + 512])
         except OSError as e:
-            raise TransportError(f"書き込みに失敗しました: {e}") from e
+            raise TransportError(f"Write failed: {e}") from e
 
     def _read_some(self, timeout: float) -> bytes:
         self._sock.settimeout(max(timeout, 0.001))
         try:
             data = self._sock.recv(1024)
             if data == b"":
-                raise TransportError("プリンタとの接続が切れました")
+                raise TransportError("Printer connection lost")
             return data
         except (socket.timeout, TimeoutError, BlockingIOError):
             return b""
         except OSError as e:
-            raise TransportError(f"読み込みに失敗しました: {e}") from e
+            raise TransportError(f"Read failed: {e}") from e
 
 
 # ---------------------------------------------------------------------------
@@ -235,7 +235,7 @@ class _AsyncRunner:
             return fut.result(timeout)
         except concurrent.futures.TimeoutError:
             fut.cancel()  # stop the coroutine instead of leaving it running in the background
-            raise TimeoutError("BLE 操作がタイムアウトしました")
+            raise TimeoutError("BLE operation timed out")
 
     def stop(self) -> None:
         if self.loop.is_closed():
@@ -273,7 +273,7 @@ class BleTransport(Transport):
         try:
             from bleak import BleakClient
         except ImportError as e:
-            raise TransportError("BLE には bleak が必要です: pip install bleak") from e
+            raise TransportError("BLE requires bleak: pip install bleak") from e
         self._runner = _AsyncRunner()
         client = BleakClient(self.address, timeout=self.connect_timeout, disconnected_callback=self._on_disconnect)
 
@@ -295,7 +295,7 @@ class BleTransport(Transport):
                 pass
             self._runner.stop()
             self._runner = None
-            raise TransportError(f"BLE で {self.address} に接続できません: {e or type(e).__name__}") from e
+            raise TransportError(f"Cannot connect to {self.address} over BLE: {e or type(e).__name__}") from e
         self._client = client
         mtu = getattr(client, "mtu_size", 23) or 23
         self._chunk = max(20, min(mtu - 3, BLE_MAX_CHUNK))
@@ -314,7 +314,7 @@ class BleTransport(Transport):
 
     def _write(self, data: bytes) -> None:
         if self._lost:
-            raise TransportError("プリンタとの BLE 接続が切れました")
+            raise TransportError("Printer BLE connection lost")
 
         async def send():
             for i in range(0, len(data), self._chunk):
@@ -325,14 +325,14 @@ class BleTransport(Transport):
         try:
             self._runner.run(send(), 30 + len(data) / 1000)
         except BaseException as e:
-            raise TransportError(f"BLE 書き込みに失敗しました: {e or type(e).__name__}") from e
+            raise TransportError(f"BLE write failed: {e or type(e).__name__}") from e
 
     def _read_some(self, timeout: float) -> bytes:
         with self._cv:
             if not self._rx and not self._lost:
                 self._cv.wait(timeout)
             if not self._rx and self._lost:
-                raise TransportError("プリンタとの BLE 接続が切れました")
+                raise TransportError("Printer BLE connection lost")
             out = bytes(self._rx)
             self._rx.clear()
             return out
@@ -487,7 +487,7 @@ def from_spec(spec: str) -> Transport:
     if kind == "rfcomm":
         addr, _, ch = rest.partition("@")
         if ch and not ch.isdigit():
-            raise TransportError(f"RFCOMM チャンネルは数字で指定してください: {spec!r}")
+            raise TransportError(f"RFCOMM channel must be a number: {spec!r}")
         return RfcommTransport(addr, int(ch) if ch else 1)
     if kind == "serial":
         return SerialTransport(rest)
@@ -498,8 +498,8 @@ def from_spec(spec: str) -> Transport:
     if kind == "file":
         return FileTransport(rest or "p21-job.bin")
     raise TransportError(
-        f"デバイス指定が不正です: {spec!r}\n"
-        "例: rfcomm:AA:BB:CC:DD:EE:FF / serial:COM5 / ble:AA:BB:CC:DD:EE:FF / mock: / file:job.bin"
+        f"Invalid device spec: {spec!r}\n"
+        "e.g. rfcomm:AA:BB:CC:DD:EE:FF / serial:COM5 / ble:AA:BB:CC:DD:EE:FF / mock: / file:job.bin"
     )
 
 
