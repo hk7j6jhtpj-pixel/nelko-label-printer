@@ -37,6 +37,8 @@ TYPE_DEFAULTS: dict[str, dict] = {
         "min_size": 8,
         "max_size": 200,
         "bold": False,
+        "italic": False,
+        "underline": False,
         "align": "center",
         "valign": "middle",
         "line_spacing": 1.15,
@@ -109,7 +111,7 @@ def _bool(v, path: str, errors: list[str]) -> bool:
     return False
 
 
-BOOL_FIELDS = ("bold", "wrap", "vertical", "fill", "show_text", "invert")
+BOOL_FIELDS = ("bold", "italic", "underline", "wrap", "vertical", "fill", "show_text", "invert")
 COORD_MAX = 10000
 KNOWN_EXTRA_KEYS = {"type", "id", "name", "locked", "hidden", "note"}
 
@@ -407,6 +409,8 @@ def json_schema() -> dict:
                             "min_size": {"type": "integer", "default": 8},
                             "max_size": {"type": "integer", "default": 200},
                             "bold": {"type": "boolean", "default": False},
+                            "italic": {"type": "boolean", "default": False, "description": "slanted (synthetic oblique)"},
+                            "underline": {"type": "boolean", "default": False},
                             "align": {"enum": ["left", "center", "right"], "default": "center"},
                             "valign": {"enum": ["top", "middle", "bottom"], "default": "middle"},
                             "line_spacing": {"type": "number", "default": 1.15},

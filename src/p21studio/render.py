@@ -144,6 +144,9 @@ _SMALL_KANA = set("ぁぃぅぇぉっゃゅょゎァィゥェォッャュョヮ�
 _WORD_RE = re.compile(r"[A-Za-z0-9À-ɏ'’\-_.@/#%&+]+\s*|\s+|.", re.S)
 
 
+ITALIC_SKEW = 0.21  # tan(~12 degrees)
+
+
 class _Face:
     def __init__(self, el: dict, size: int):
         self.font, fake_bold = fonts.load(el["font"], size, el["bold"])
@@ -240,9 +243,11 @@ def _render_text(el: dict, w: int, h: int, base: Path, warnings: list[str], i: i
     def layout(*a):
         return base_layout(*a, break_words=break_words)
 
+    skew = ITALIC_SKEW if el.get("italic") and not el["vertical"] else 0.0
+
     def fits(size: int) -> bool:
         *_, width, height = layout(text, el, size, w, h)
-        return width <= w and height <= h
+        return width + skew * height <= w and height <= h
 
     if el["size"] in ("auto", None):
         lo, hi = max(1, el["min_size"]), max(el["min_size"], min(el["max_size"], h * 2 if not el["vertical"] else w * 2))
@@ -311,7 +316,19 @@ def _render_text(el: dict, w: int, h: int, base: Path, warnings: list[str], i: i
         x = 0 if al == "left" else (w - lw) if al == "right" else (w - lw) / 2
         baseline = y0 - face.top + li * pitch
         _draw_line(d, face, line, x + face.stroke, baseline)
+        if el.get("underline") and line.strip():
+            t = max(1, round(size / 14))
+            uy = baseline + max(1, round(size * 0.09))
+            d.rectangle([x, uy, x + lw - 1, uy + t - 1], fill=255)
+    if skew:
+        mask = _shear(mask, skew)
     return mask
+
+
+def _shear(mask: Image.Image, k: float) -> Image.Image:
+    """Slant to the right about the vertical centre (top moves right, bottom moves left)."""
+    w, h = mask.size
+    return mask.transform((w, h), Image.Transform.AFFINE, (1, k, -k * h / 2, 0, 1, 0), resample=Image.Resampling.BILINEAR)
 
 
 def _draw_line(d: ImageDraw.ImageDraw, face: _Face, line: str, x: float, baseline: float) -> None:
