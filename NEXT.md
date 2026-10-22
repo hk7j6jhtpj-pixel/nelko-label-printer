@@ -1,6 +1,6 @@
 # Next step
 
-Refresh battery % after each print; show it amber when low
+Run the app on macOS
 
 Plan: https://claude.ai/artifact/U6SEDDfhS46NB9UKc39d9q
 

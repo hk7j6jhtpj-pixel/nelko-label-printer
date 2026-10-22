@@ -104,6 +104,14 @@ def add_history(job: dict, path: Path | None = None) -> list[dict]:
     return items
 
 
+LOW_BATTERY_PERCENT = 20
+
+
+def battery_is_low(percent) -> bool:
+    """True when the reported battery is at or below the low threshold; unknown is not low."""
+    return percent is not None and percent <= LOW_BATTERY_PERCENT
+
+
 def friendly_error(e: BaseException) -> str:
     """Short plain message for the status line; technical text goes in Details."""
     from .printer import PrinterNotReady
@@ -288,7 +296,7 @@ class App:
         self._bind_keys()
         root.after(100, self._poll)
         root.after(300, lambda: self.worker.inbox.put(("info", None)))
-        self.set_status("Looking for printer…", "muted")
+        self.set_status("Pending", "muted")
 
     # theme ---------------------------------------------------------------
     def _resolved_theme(self) -> str:
@@ -307,6 +315,9 @@ class App:
             ImageDraw.Draw(img).text((big // 2, big // 2), chr(ICONS[name]), font=font, fill=color, anchor="mm")
             self._icons[key] = ImageTk.PhotoImage(img.resize((px, px), Image.Resampling.LANCZOS))
         return self._icons[key]
+
+    def _paint_printer_lbl(self) -> None:
+        self.printer_lbl.configure(fg=self.pal["warning" if self.batt_low else "muted"])
 
     def apply_theme(self) -> None:
         self.pal = p = PALETTES[self._resolved_theme()]
@@ -378,6 +389,8 @@ class App:
         self.bt_btn.pack(side="left")
         self.printer_lbl = self.label(top, "", role="muted", font=self.f_mono)
         self.printer_lbl.pack(side="left", padx=8)
+        self.batt_low = False
+        self.themed(self._paint_printer_lbl)  # registered after label(), so it wins on repaint
         self.theme_btn = IconButton(top, self, "sun-moon", "Theme: system / light / dark", self.cycle_theme)
         self.theme_btn.pack(side="right")
 
@@ -578,11 +591,9 @@ class App:
     def add_to_queue(self) -> None:
         job = self.current_job()
         if not job["text"].strip():
-            self.set_status("Type some text first.", "warning")
             return
         self.queue_jobs.append(job)
         self.render_queue()
-        self.set_status("Added to queue.", "muted")
 
     def remove_from_queue(self, i: int) -> None:
         self.removed = (i, self.queue_jobs.pop(i))
@@ -661,13 +672,11 @@ class App:
     def print_now(self) -> None:
         job = self.current_job()
         if not job["text"].strip():
-            self.set_status("Type some text first.", "warning")
             return
         self.start_print([job])
 
     def print_queue(self) -> None:
         if not self.queue_jobs:
-            self.set_status("Queue is empty.", "warning")
             return
         jobs, self.queue_jobs = self.queue_jobs, []
         self.render_queue()
@@ -677,16 +686,16 @@ class App:
         if self.busy:
             self.queue_jobs.extend(jobs)  # never drop work: park it in the queue
             self.render_queue()
-            self.set_status("Printer busy. Added to queue.", "muted")
+            self.set_status("Pending", "muted")
             return
         self.busy = True
         self.pending = list(jobs)
-        self.set_status("Connecting…", "muted")
+        self.set_status("Pending", "muted")
         self.worker.inbox.put(("print", jobs))
 
     def find_printer(self) -> None:
         config.set_value("device", None)  # forget a saved printer and scan again
-        self.set_status("Looking for printer…", "muted")
+        self.set_status("Pending", "muted")
         self.worker.inbox.put(("info", None))
 
     def _poll(self) -> None:
@@ -704,9 +713,11 @@ class App:
             name = "P21" if not str(payload.get("device", "")).startswith("mock") else "Mock printer"
             pct = f" · {batt['percent']}%" if batt.get("percent") is not None else ""
             self.printer_lbl.configure(text=f"{name}{pct}")
-            self.set_status("Ready.", "success")
+            self.batt_low = battery_is_low(batt.get("percent"))
+            self._paint_printer_lbl()
+            self.set_status("Ready", "success")
         elif kind == "printing":
-            self.set_status(f"Printing “{payload['text'].strip()[:24]}” ×{payload['copies']}…", "muted")
+            self.set_status("Pending", "muted")
         elif kind == "printed":
             self.history = add_history(payload)
             if payload in self.pending:
@@ -714,7 +725,8 @@ class App:
             self.render_history()
         elif kind == "done":
             self.busy = False
-            self.set_status("Printed.", "success")
+            self.set_status("Pending", "muted")  # the battery refresh below sets Ready
+            self.worker.inbox.put(("info", None))  # battery drops while printing; the single worker keeps this after the print
         elif kind == "info_error":
             self.printer_lbl.configure(text="No printer")
             self.set_status(friendly_error(payload), "error", details=f"{type(payload).__name__}: {payload}\n\n{details}")
