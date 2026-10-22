@@ -1,4 +1,4 @@
-"""User templates: saved label designs, shared by the GUI, the CLI and the MCP server.
+"""User templates: saved label designs, shared by the desktop app and the CLI.
 
 Templates are ordinary label files kept in one folder (config dir /templates, or
 $P21_TEMPLATES_DIR to share a folder between machines, e.g. via a synced drive).

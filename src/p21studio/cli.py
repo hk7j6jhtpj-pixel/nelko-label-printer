@@ -262,20 +262,6 @@ def cmd_validate(args) -> int:
     return EXIT_OK if not r.warnings else EXIT_LABEL
 
 
-def cmd_gui(args) -> int:
-    from .server import serve
-
-    serve(args.host, args.port, open_browser=not args.no_browser, device=args.device)
-    return EXIT_OK
-
-
-def cmd_mcp(args) -> int:
-    from .mcp import serve_stdio
-
-    serve_stdio(default_device=args.device)
-    return EXIT_OK
-
-
 # --- parser ------------------------------------------------------------------------
 def build_parser() -> argparse.ArgumentParser:
     common = argparse.ArgumentParser(add_help=False)
@@ -354,15 +340,6 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("validate", parents=[common], help="Check a label JSON")
     s.add_argument("source")
     s.set_defaults(func=cmd_validate)
-
-    s = sub.add_parser("gui", parents=[common], help="Start the GUI (browser)")
-    s.add_argument("--host", default="127.0.0.1", help="0.0.0.0 allows access from other PCs")
-    s.add_argument("--port", type=int, default=8721)
-    s.add_argument("--no-browser", action="store_true")
-    s.set_defaults(func=cmd_gui)
-
-    s = sub.add_parser("mcp", parents=[common], help="Run as an MCP server (stdio) for AI agents")
-    s.set_defaults(func=cmd_mcp)
     return p
 
 
