@@ -14,7 +14,7 @@ const DEFAULTS = {
   ellipse: { fill: false, stroke: 2 },
   line: { x1: 0, y1: 0, x2: 50, y2: 0, width: 2 },
 };
-const TYPE_NAMES = { text: "テキスト", qr: "QR", barcode: "バーコード", image: "画像", rect: "四角", ellipse: "円", line: "線" };
+const TYPE_NAMES = { text: "Text", qr: "QR", barcode: "Barcode", image: "Image", rect: "Rectangle", ellipse: "Ellipse", line: "Line" };
 const SYMBOLOGIES = ["code128", "code39", "ean13", "ean8", "jan", "upca", "itf", "codabar", "isbn13", "gs1_128"];
 
 const S = {
@@ -83,7 +83,7 @@ function rescaleTo(oldW, oldH) {
       if (el.type === "qr") { const s = Math.min(el.w, el.h); el.x += Math.round((el.w - s) / 2); el.y += Math.round((el.h - s) / 2); el.w = el.h = s; }
     }
   }
-  toast("新しいサイズに合わせて要素の位置と大きさを調整しました（元に戻すで戻せます）", "", 5000);
+  toast("Element positions and sizes adjusted to the new size (Undo to revert)", "", 5000);
 }
 
 function newLabel() {
@@ -160,7 +160,7 @@ async function requestRender() {
     $("#preview").src = r.png;
     S.render.boxes = r.boxes;
     S.render.w = r.width; S.render.h = r.height;
-    $("#warnings").innerHTML = r.warnings.map((w) => (r.errors.includes(w) ? "⛔ " : "⚠ ") + esc(w)).join("<br>") + (r.errors.length ? "<br><b>⛔ の要素は描画できないため、このままでは印刷できません。</b>" : "");
+    $("#warnings").innerHTML = r.warnings.map((w) => (r.errors.includes(w) ? "⛔ " : "⚠ ") + esc(w)).join("<br>") + (r.errors.length ? "<br><b>Elements marked ⛔ cannot be rendered, so this cannot be printed as is.</b>" : "");
     if (JSON.stringify(r.variables) !== JSON.stringify(S.render.variables)) {
       S.render.variables = r.variables;
       renderVars();
@@ -168,10 +168,10 @@ async function requestRender() {
     if (S.inline) S.inline.layout();
     const sel = r.boxes[S.sel];
     const auto = $("#auto-size-note");
-    if (auto) auto.textContent = sel && sel.font_size ? `現在 ${sel.font_size}px` : "";
+    if (auto) auto.textContent = sel && sel.font_size ? `Current ${sel.font_size}px` : "";
   } catch (e) {
     $("#preview").src = "data:image/gif;base64,R0lGODlhAQABAAAAACw=";
-    $("#warnings").innerHTML = "⚠ 描画できません: " + esc(e.message).replace(/\n/g, "<br>");
+    $("#warnings").innerHTML = "⚠ Cannot render: " + esc(e.message).replace(/\n/g, "<br>");
   } finally {
     S.render.inflight = false;
     if (S.render.dirty) { S.render.dirty = false; requestRender(); }
@@ -287,7 +287,7 @@ function renderOverlay() {
   stage.style.width = W * z + "px";
   stage.style.height = H * z + "px";
   stage.classList.toggle("inverted", !!S.label.invert);
-  $("#stage-info").textContent = `${S.label.media.width_mm}×${S.label.media.length_mm} mm ・ 印字範囲 ${W}×${H} ドット ・ ${z}倍`;
+  $("#stage-info").textContent = `${S.label.media.width_mm}×${S.label.media.length_mm} mm · Print area ${W}×${H} dots · ${z}x`;
   const ov = $("#overlay");
   ov.classList.toggle("hide-boxes", !$("#show-boxes").checked);
   ov.innerHTML = "";
@@ -433,7 +433,7 @@ function addElement(type, extra = {}) {
   switch (type) {
     case "text": {
       const first = !S.label.elements.some((e) => e.type === "text");
-      el = first ? { type, x: m, y: m, w: W - 2 * m, h: H - 2 * m, text: "テキスト" } : { type, x: Math.round(W / 4), y: Math.round(H / 3), w: Math.round(W / 2), h: Math.round(H / 3), text: "テキスト" };
+      el = first ? { type, x: m, y: m, w: W - 2 * m, h: H - 2 * m, text: "Text" } : { type, x: Math.round(W / 4), y: Math.round(H / 3), w: Math.round(W / 2), h: Math.round(H / 3), text: "Text" };
       break;
     }
     case "date":
@@ -507,7 +507,7 @@ function renderLayers() {
     li.onclick = () => select(i);
     ol.appendChild(li);
   });
-  if (!S.label.elements.length) ol.innerHTML = '<li class="muted">まだ何もありません</li>';
+  if (!S.label.elements.length) ol.innerHTML = '<li class="muted">Nothing yet</li>';
 }
 
 // ---------------------------------------------------------------- property panel
@@ -610,18 +610,18 @@ function renderProps() {
   p.appendChild(h);
 
   if (el.type === "text") {
-    propField(p, el, "text", "文字（改行できます）", "textarea", { id: "prop-text" });
+    propField(p, el, "text", "Text (newlines allowed)", "textarea", { id: "prop-text" });
     if (/\{\{/.test(el.text || "")) {
       const hint = document.createElement("p");
       hint.className = "muted";
       hint.style.margin = "-4px 0 10px";
-      hint.textContent = "{{名前}} は差し込み欄・CSV の値に、{{date:%Y/%m/%d}} は印刷する日の日付（%m=月 %d=日 %H:%M=時刻）に置き換わります。";
+      hint.textContent = "{{name}} is replaced by the Variables field or CSV value. {{date:%Y/%m/%d}} is replaced by the print date (%m=month %d=day %H:%M=time).";
       p.appendChild(hint);
     }
-    propField(p, el, "font", "フォント（auto / 名前 / パス）", "text", { list: "font-list" });
+    propField(p, el, "font", "Font (auto / name / path)", "text", { list: "font-list" });
     const sz = document.createElement("div");
     sz.className = "field";
-    sz.append("文字サイズ");
+    sz.append("Font size");
     const row = document.createElement("div");
     row.className = "size-row";
     const auto = document.createElement("label");
@@ -629,7 +629,7 @@ function renderProps() {
     const cb = document.createElement("input");
     cb.type = "checkbox";
     cb.checked = el.size === undefined || el.size === "auto" || el.size === null;
-    auto.append(cb, "枠に合わせる");
+    auto.append(cb, "Fit to box");
     const num = document.createElement("input");
     num.type = "number"; num.min = 4; num.max = 400;
     num.value = cb.checked ? (S.render.boxes[S.sel]?.font_size || 24) : el.size;
@@ -637,7 +637,7 @@ function renderProps() {
     const note = document.createElement("span");
     note.id = "auto-size-note";
     note.className = "muted";
-    note.textContent = S.render.boxes[S.sel]?.font_size ? `現在 ${S.render.boxes[S.sel].font_size}px` : "";
+    note.textContent = S.render.boxes[S.sel]?.font_size ? `Current ${S.render.boxes[S.sel].font_size}px` : "";
     cb.onchange = () => { checkpoint(); el.size = cb.checked ? "auto" : (+num.value || 24); num.disabled = cb.checked; changed(); };
     num.oninput = () => { if (+num.value > 0) { checkpoint(false); el.size = +num.value; changed(); } };
     row.append(auto, num, note);
@@ -645,63 +645,63 @@ function renderProps() {
     p.appendChild(sz);
     const g = document.createElement("div");
     g.className = "row";
-    propField(g, el, "bold", "太字", "check");
-    propField(g, el, "wrap", "自動改行", "check");
-    propField(g, el, "vertical", "縦書き", "check");
+    propField(g, el, "bold", "Bold", "check");
+    propField(g, el, "wrap", "Auto wrap", "check");
+    propField(g, el, "vertical", "Vertical text", "check");
     p.appendChild(g);
-    segField(p, el, "align", "横位置", [["left", "左"], ["center", "中央"], ["right", "右"]]);
-    segField(p, el, "valign", "縦位置", [["top", "上"], ["middle", "中央"], ["bottom", "下"]]);
-    const adv = section(p, "詳細");
+    segField(p, el, "align", "Horizontal align", [["left", "Left"], ["center", "Center"], ["right", "Right"]]);
+    segField(p, el, "valign", "Vertical align", [["top", "Top"], ["middle", "Middle"], ["bottom", "Bottom"]]);
+    const adv = section(p, "Advanced");
     const g2 = document.createElement("div");
     g2.className = "grid2";
-    propField(g2, el, "line_spacing", "行間", "number", { step: 0.05 });
-    propField(g2, el, "letter_spacing", "字間(px)", "number");
-    propField(g2, el, "stroke", "太らせる(px)", "number");
-    propField(g2, el, "min_size", "最小サイズ", "number");
+    propField(g2, el, "line_spacing", "Line spacing", "number", { step: 0.05 });
+    propField(g2, el, "letter_spacing", "Letter spacing (px)", "number");
+    propField(g2, el, "stroke", "Thicken (px)", "number");
+    propField(g2, el, "min_size", "Min size", "number");
     adv.appendChild(g2);
   } else if (el.type === "qr") {
-    propField(p, el, "data", "内容（URL・テキスト）", "textarea");
+    propField(p, el, "data", "Content (URL / text)", "textarea");
     const g = document.createElement("div");
     g.className = "grid2";
-    propField(g, el, "ecc", "誤り訂正", "select", { options: [["L", "L (7%)"], ["M", "M (15%)"], ["Q", "Q (25%)"], ["H", "H (30%)"]] });
-    propField(g, el, "border", "余白(モジュール)", "number");
+    propField(g, el, "ecc", "Error correction", "select", { options: [["L", "L (7%)"], ["M", "M (15%)"], ["Q", "Q (25%)"], ["H", "H (30%)"]] });
+    propField(g, el, "border", "Margin (modules)", "number");
     p.appendChild(g);
   } else if (el.type === "barcode") {
-    propField(p, el, "data", "内容", "text");
-    propField(p, el, "symbology", "種類", "select", { options: SYMBOLOGIES.map((s) => [s, s.toUpperCase()]) });
+    propField(p, el, "data", "Content", "text");
+    propField(p, el, "symbology", "Type", "select", { options: SYMBOLOGIES.map((s) => [s, s.toUpperCase()]) });
     const g = document.createElement("div");
     g.className = "grid2";
-    propField(g, el, "show_text", "数字を表示", "check");
-    propField(g, el, "text_size", "数字サイズ", "number");
+    propField(g, el, "show_text", "Show digits", "check");
+    propField(g, el, "text_size", "Digit size", "number");
     p.appendChild(g);
   } else if (el.type === "image") {
     const b = document.createElement("button");
     b.className = "btn";
-    b.textContent = "画像を差し替え…";
+    b.textContent = "Replace image…";
     b.onclick = () => pickImage((src) => { checkpoint(); el.src = src; changed(); });
     p.appendChild(b);
-    segField(p, el, "fit", "合わせ方", [["contain", "全体"], ["cover", "切り抜き"], ["stretch", "引き伸ばし"]]);
-    segField(p, el, "dither", "白黒化", [["floyd", "ディザ（写真）"], ["threshold", "しきい値（ロゴ）"]]);
-    propField(p, el, "threshold", "しきい値", "range", { min: 1, max: 254 });
-    propField(p, el, "brightness", "明るさ", "range", { min: 0.2, max: 2, step: 0.05 });
-    propField(p, el, "contrast", "コントラスト", "range", { min: 0.2, max: 3, step: 0.05 });
-    propField(p, el, "invert", "白黒反転", "check");
+    segField(p, el, "fit", "Fit", [["contain", "Contain"], ["cover", "Cover"], ["stretch", "Stretch"]]);
+    segField(p, el, "dither", "Black/white", [["floyd", "Dither (photo)"], ["threshold", "Threshold (logo)"]]);
+    propField(p, el, "threshold", "Threshold", "range", { min: 1, max: 254 });
+    propField(p, el, "brightness", "Brightness", "range", { min: 0.2, max: 2, step: 0.05 });
+    propField(p, el, "contrast", "Contrast", "range", { min: 0.2, max: 3, step: 0.05 });
+    propField(p, el, "invert", "Invert", "check");
   } else if (el.type === "rect" || el.type === "ellipse") {
     const g = document.createElement("div");
     g.className = "grid2";
-    propField(g, el, "stroke", "線の太さ", "number");
-    if (el.type === "rect") propField(g, el, "radius", "角丸", "number");
+    propField(g, el, "stroke", "Line width", "number");
+    if (el.type === "rect") propField(g, el, "radius", "Corner radius", "number");
     p.appendChild(g);
-    propField(p, el, "fill", "塗りつぶし", "check");
+    propField(p, el, "fill", "Fill", "check");
   } else if (el.type === "line") {
     const g = document.createElement("div");
     g.className = "grid4";
     for (const k of ["x1", "y1", "x2", "y2"]) propField(g, el, k, k, "number", { id: "prop-" + k });
     p.appendChild(g);
-    propField(p, el, "width", "太さ", "number");
+    propField(p, el, "width", "Width", "number");
   }
 
-  const pos = section(p, "位置とサイズ（ドット）");
+  const pos = section(p, "Position and size (dots)");
   if (el.type !== "line") {
     const g = document.createElement("div");
     g.className = "grid4";
@@ -709,16 +709,16 @@ function renderProps() {
     pos.appendChild(g);
     const g2 = document.createElement("div");
     g2.className = "grid2";
-    propField(g2, el, "rotate", "回転", "select", { number: true, options: [[0, "0°"], [90, "90°"], [180, "180°"], [270, "270°"]] });
-    propField(g2, el, "color", "色", "select", { options: [["black", "黒"], ["white", "白（白抜き）"]] });
+    propField(g2, el, "rotate", "Rotate", "select", { number: true, options: [[0, "0°"], [90, "90°"], [180, "180°"], [270, "270°"]] });
+    propField(g2, el, "color", "Color", "select", { options: [["black", "Black"], ["white", "White (knockout)"]] });
     pos.appendChild(g2);
     const al = document.createElement("div");
     al.className = "row";
     const [W, H] = canvasSize();
     for (const [t, fn] of [
-      ["左右中央", () => { el.x = Math.round((W - el.w) / 2); }],
-      ["上下中央", () => { el.y = Math.round((H - el.h) / 2); }],
-      ["全面", () => { el.x = 0; el.y = 0; el.w = W; el.h = H; }],
+      ["Center horizontally", () => { el.x = Math.round((W - el.w) / 2); }],
+      ["Center vertically", () => { el.y = Math.round((H - el.h) / 2); }],
+      ["Fill label", () => { el.x = 0; el.y = 0; el.w = W; el.h = H; }],
     ]) {
       const b = document.createElement("button");
       b.className = "btn small ghost";
@@ -728,12 +728,12 @@ function renderProps() {
     }
     pos.appendChild(al);
   } else {
-    propField(pos, el, "color", "色", "select", { options: [["black", "黒"], ["white", "白（白抜き）"]] });
+    propField(pos, el, "color", "Color", "select", { options: [["black", "Black"], ["white", "White (knockout)"]] });
   }
 
   const act = document.createElement("div");
   act.className = "actions";
-  for (const [t, fn, cls] of [["前面へ", () => moveLayer(1)], ["背面へ", () => moveLayer(-1)], ["複製", duplicateSelected], ["削除", deleteSelected, "danger"]]) {
+  for (const [t, fn, cls] of [["Bring forward", () => moveLayer(1)], ["Send back", () => moveLayer(-1)], ["Duplicate", duplicateSelected], ["Delete", deleteSelected, "danger"]]) {
     const b = document.createElement("button");
     b.className = "btn " + (cls || "");
     b.textContent = t;
@@ -745,27 +745,27 @@ function renderProps() {
 
 function renderLabelProps(p) {
   const h = document.createElement("h2");
-  h.textContent = "ラベル設定";
+  h.textContent = "Label settings";
   p.appendChild(h);
   const L = S.label;
-  propField(p, L, "name", "名前", "text");
+  propField(p, L, "name", "Name", "text");
   const g = document.createElement("div");
   g.className = "grid2";
-  const mw = propField(g, L.media, "width_mm", "幅 (mm)", "number");
-  const ml = propField(g, L.media, "length_mm", "長さ (mm)", "number");
+  const mw = propField(g, L.media, "width_mm", "Width (mm)", "number");
+  const ml = propField(g, L.media, "length_mm", "Length (mm)", "number");
   mw.oninput = () => { if (+mw.value > 0) { checkpoint(false); L.media.width_mm = +mw.value; changed(); } };
   ml.oninput = () => { if (+ml.value > 0) { checkpoint(false); L.media.length_mm = +ml.value; delete L.media.length_dots; changed(); } };
   p.appendChild(g);
-  propField(p, L, "invert", "全体を白黒反転", "check");
+  propField(p, L, "invert", "Invert black and white", "check");
   const info = document.createElement("p");
   info.className = "empty";
   const [W, H] = canvasSize();
-  info.innerHTML = `印字範囲は <b>${W}×${H}</b> ドット（約 8 ドット = 1 mm）。<br>左の「追加」から要素を置き、ドラッグで移動、角で大きさを変えます。<br><br>
-    文字は<b>ダブルクリック</b>（または <span class="kbd">Enter</span>）でその場で編集、<span class="kbd">Esc</span> で取り消し。<br>
-    <span class="kbd">Del</span> 削除 ・ <span class="kbd">Ctrl+D</span> 複製 ・ <span class="kbd">矢印</span> 1 ドット移動（Shift で 8）<br>
-    <span class="kbd">Ctrl+Z</span> 元に戻す ・ <span class="kbd">Ctrl+S</span> 保存 ・ <span class="kbd">Ctrl+P</span> 印刷<br>
-    ドラッグ中 <span class="kbd">Alt</span> でスナップ無効、<span class="kbd">Shift</span> で縦横比固定。<br>
-    画像や .json ファイルはドラッグ＆ドロップでも追加できます。`;
+  info.innerHTML = `Print area: <b>${W}×${H}</b> dots (about 8 dots = 1 mm).<br>Add elements from "Add" on the left. Drag to move, drag a corner to resize.<br><br>
+    Text: <b>double-click</b> (or <span class="kbd">Enter</span>) to edit in place, <span class="kbd">Esc</span> to cancel.<br>
+    <span class="kbd">Del</span> Delete · <span class="kbd">Ctrl+D</span> Duplicate · <span class="kbd">Arrows</span> Move 1 dot (Shift for 8)<br>
+    <span class="kbd">Ctrl+Z</span> Undo · <span class="kbd">Ctrl+S</span> Save · <span class="kbd">Ctrl+P</span> Print<br>
+    While dragging: <span class="kbd">Alt</span> disables snapping, <span class="kbd">Shift</span> keeps the aspect ratio.<br>
+    You can also drag and drop images or .json files.`;
   p.appendChild(info);
 }
 
@@ -782,7 +782,7 @@ function renderVars() {
     f.append(`{{${name}}}`);
     const inp = document.createElement("input");
     inp.value = S.values[name] ?? S.label.variables?.[name] ?? "";
-    inp.placeholder = S.csv ? "（CSV の値を使用）" : "";
+    inp.placeholder = S.csv ? "(using CSV value)" : "";
     inp.oninput = () => { S.values[name] = inp.value; S.label.variables = { ...(S.label.variables || {}), [name]: inp.value }; requestRender(); clearTimeout(saveTimer); saveTimer = setTimeout(saveLocal, 400); };
     f.appendChild(inp);
     grid.appendChild(f);
@@ -792,7 +792,7 @@ function renderVars() {
   $("#csv-clear").hidden = !S.csv;
   if (S.csv) {
     const cols = Object.keys(S.csv[0] || {});
-    info.innerHTML = `CSV: <b>${S.csv.length}</b> 行（列: ${esc(cols.join(", "))}）→ 印刷すると ${S.csv.length} 枚出ます。プレビューする行:`;
+    info.innerHTML = `CSV: <b>${S.csv.length}</b> rows (columns: ${esc(cols.join(", "))}) -> printing makes ${S.csv.length} labels. Preview row:`;
     const rows = document.createElement("div");
     rows.className = "rows";
     S.csv.slice(0, 200).forEach((r, i) => {
@@ -844,7 +844,7 @@ function syncTop() {
 
 function updatePrintLabel() {
   const n = (S.csv ? S.csv.length : 1) * (S.label.copies || 1);
-  $("#print .label").textContent = n > 1 ? `印刷（${n} 枚）` : "印刷";
+  $("#print .label").textContent = n > 1 ? `Print (${n})` : "Print";
 }
 
 function loadLabel(lab, keepHistory = false) {
@@ -918,41 +918,41 @@ function openFile(file) {
   if (file.type.startsWith("image/")) return addImageFromFile(file);
   file.text().then((t) => {
     let data;
-    try { data = JSON.parse(t); } catch { return toast(`${file.name} はラベルファイル（.p21.json）ではありません`, "err"); }
-    if (!data || !Array.isArray(data.elements)) return toast(`${file.name} はラベルファイル（.p21.json）ではありません`, "err");
+    try { data = JSON.parse(t); } catch { return toast(`${file.name} is not a label file (.p21.json)`, "err"); }
+    if (!data || !Array.isArray(data.elements)) return toast(`${file.name} is not a label file (.p21.json)`, "err");
     loadLabel(data);
-    toast(`${file.name} を開きました`, "ok");
+    toast(`Opened ${file.name}`, "ok");
   });
 }
 
 // ---------------------------------------------------------------- templates
 const TEMPLATES = [
-  ["1行テキスト", (W, H) => [{ type: "text", x: 6, y: 4, w: W - 12, h: H - 8, text: "ラベル", bold: true }], true],
-  ["タイトル＋サブ", (W, H) => [
-    { type: "text", x: 6, y: 4, w: W - 12, h: Math.round(H * 0.6) - 4, text: "タイトル", bold: true },
+  ["One-line text", (W, H) => [{ type: "text", x: 6, y: 4, w: W - 12, h: H - 8, text: "Label", bold: true }], true],
+  ["Title + subtitle", (W, H) => [
+    { type: "text", x: 6, y: 4, w: W - 12, h: Math.round(H * 0.6) - 4, text: "Title", bold: true },
     { type: "line", x1: 10, y1: Math.round(H * 0.62), x2: W - 10, y2: Math.round(H * 0.62), width: 2 },
-    { type: "text", x: 6, y: Math.round(H * 0.66), w: W - 12, h: Math.round(H * 0.32), text: "サブテキスト" },
+    { type: "text", x: 6, y: Math.round(H * 0.66), w: W - 12, h: Math.round(H * 0.32), text: "Subtitle" },
   ]],
-  ["QR ＋ テキスト", (W, H) => [
+  ["QR + text", (W, H) => [
     { type: "qr", x: 6, y: 6, w: H - 12, h: H - 12, data: "https://example.com" },
-    { type: "text", x: H, y: 6, w: W - H - 6, h: Math.round(H * 0.58), text: "タイトル", bold: true },
+    { type: "text", x: H, y: 6, w: W - H - 6, h: Math.round(H * 0.58), text: "Title", bold: true },
     { type: "text", x: H, y: Math.round(H * 0.62), w: W - H - 6, h: Math.round(H * 0.32), text: "example.com" },
   ]],
-  ["バーコード", (W, H) => [{ type: "barcode", x: 8, y: 6, w: W - 16, h: H - 12, data: "4901234567894", symbology: "ean13" }]],
-  ["枠付きネーム", (W, H) => [
+  ["Barcode", (W, H) => [{ type: "barcode", x: 8, y: 6, w: W - 16, h: H - 12, data: "4901234567894", symbology: "ean13" }]],
+  ["Framed name", (W, H) => [
     { type: "rect", x: 1, y: 1, w: W - 2, h: H - 2, stroke: 3, radius: 12 },
-    { type: "text", x: 12, y: 10, w: W - 24, h: H - 20, text: "なまえ", bold: true },
+    { type: "text", x: 12, y: 10, w: W - 24, h: H - 20, text: "Name", bold: true },
   ], true],
-  ["白抜きヘッダ", (W, H) => [
+  ["Knockout header", (W, H) => [
     { type: "rect", x: 0, y: 0, w: W, h: Math.round(H * 0.4), fill: true, radius: 0 },
-    { type: "text", x: 6, y: 2, w: W - 12, h: Math.round(H * 0.4) - 4, text: "見出し", bold: true, color: "white" },
-    { type: "text", x: 6, y: Math.round(H * 0.44), w: W - 12, h: Math.round(H * 0.54), text: "本文テキスト" },
+    { type: "text", x: 6, y: 2, w: W - 12, h: Math.round(H * 0.4) - 4, text: "Heading", bold: true, color: "white" },
+    { type: "text", x: 6, y: Math.round(H * 0.44), w: W - 12, h: Math.round(H * 0.54), text: "Body text" },
   ]],
-  ["作成日ラベル", (W, H) => [
-    { type: "text", x: 6, y: 4, w: W - 12, h: Math.round(H * 0.5), text: "{{品名}}", bold: true },
+  ["Dated label", (W, H) => [
+    { type: "text", x: 6, y: 4, w: W - 12, h: Math.round(H * 0.5), text: "{{item}}", bold: true },
     { type: "text", x: 6, y: Math.round(H * 0.56), w: W - 12, h: Math.round(H * 0.4), text: "{{date:%Y/%m/%d}}" },
   ]],
-  ["ケーブルフラッグ", (W, H) => {
+  ["Cable flag", (W, H) => {
     const wrap = Math.round(W * 0.22), side = Math.round((W - wrap) / 2);
     return [
       { type: "text", x: 3, y: 4, w: side - 6, h: H - 8, text: "LAN-01", bold: true },
@@ -963,7 +963,7 @@ const TEMPLATES = [
       { type: "text", x: W - side + 3, y: 4, w: side - 6, h: H - 8, text: "LAN-01", bold: true },
     ];
   }],
-  ["縦書き", (W, H) => [{ type: "text", x: 4, y: 4, w: W - 8, h: H - 8, text: "縦書きラベル", vertical: true, bold: true }], true],
+  ["Vertical text", (W, H) => [{ type: "text", x: 4, y: 4, w: W - 8, h: H - 8, text: "Vertical label", vertical: true, bold: true }], true],
 ];
 
 function renderTemplates() {
@@ -972,12 +972,12 @@ function renderTemplates() {
     const b = document.createElement("button");
     b.textContent = name;
     b.onclick = () => {
-      if (S.label.elements.length && !confirm("今のデザインを置き換えますか？（元に戻すで戻せます）")) return;
+      if (S.label.elements.length && !confirm("Replace the current design? (Undo to revert)")) return;
       checkpoint();
       if (S.label.orientation === "portrait" && !portraitOk) {
         S.label.orientation = "landscape";
         S.zoom = 0;
-        toast("このテンプレートは横向き用なので、向きを「横」にしました", "", 5000);
+        toast("This template is for landscape, so orientation was set to Landscape", "", 5000);
       }
       const [W, H] = canvasSize();
       S.label.elements = fn(W, H);
@@ -992,36 +992,36 @@ function renderTemplates() {
 async function loadMyTemplates() {
   const box = $("#my-templates");
   let list = [];
-  try { list = (await api("/api/templates")).templates; } catch (e) { box.innerHTML = `<p class="empty">読み込めません: ${esc(e.message)}</p>`; return; }
+  try { list = (await api("/api/templates")).templates; } catch (e) { box.innerHTML = `<p class="empty">Cannot load:${esc(e.message)}</p>`; return; }
   box.innerHTML = "";
   if (!list.length) {
-    box.innerHTML = '<p class="empty">よく使うデザインを「今のデザインを保存」で登録すると、ここからすぐ呼び出せます（CLI や AI からも使えます）。</p>';
+    box.innerHTML = '<p class="empty">Save a design you use often with "Save current design" to reuse it from here (also usable from the CLI and AI).</p>';
     return;
   }
   for (const t of list) {
     const item = document.createElement("div");
     item.className = "tpl";
-    item.title = t.error ? t.error : `${t.media.width_mm}×${t.media.length_mm} mm` + (t.variables.length ? `\n変数: ${t.variables.join(", ")}` : "");
+    item.title = t.error ? t.error : `${t.media.width_mm}×${t.media.length_mm} mm` + (t.variables.length ? `\nVariables: ${t.variables.join(", ")}` : "");
     item.innerHTML = (t.png ? `<img src="${t.png}" alt="">` : "") +
       `<span class="tpl-name">${esc(t.name)}</span>` +
-      `<span class="tpl-meta">${t.error ? "読めません" : `${t.media.width_mm}×${t.media.length_mm}` + (t.variables.length ? ` ・ {{${esc(t.variables.join("}} {{"))}}}` : "")}</span>`;
+      `<span class="tpl-meta">${t.error ? "Unreadable" : `${t.media.width_mm}×${t.media.length_mm}` + (t.variables.length ? ` · {{${esc(t.variables.join("}} {{"))}}}` : "")}</span>`;
     const del = document.createElement("button");
     del.className = "tpl-del";
-    del.title = "このテンプレートを削除";
+    del.title = "Delete this template";
     del.textContent = "✕";
     del.onclick = async (e) => {
       e.stopPropagation();
-      if (!confirm(`テンプレート「${t.name}」を削除しますか？（元に戻せません）`)) return;
-      try { await api("/api/templates/delete", { name: t.name }); toast(`「${t.name}」を削除しました`, "ok"); loadMyTemplates(); } catch (err) { toast(err.message, "err"); }
+      if (!confirm(`Delete template "${t.name}"? This cannot be undone.`)) return;
+      try { await api("/api/templates/delete", { name: t.name }); toast(`Deleted "${t.name}"`, "ok"); loadMyTemplates(); } catch (err) { toast(err.message, "err"); }
     };
     item.appendChild(del);
     item.onclick = async () => {
       if (t.error) return toast(t.error, "err");
-      if (S.label.elements.length && !confirm(`今のデザインを「${t.name}」で置き換えますか？（元に戻すで戻せます）`)) return;
+      if (S.label.elements.length && !confirm(`Replace the current design with "${t.name}"? (Undo to revert)`)) return;
       try {
         const r = await api("/api/templates/load", { name: t.name });
         loadLabel(r.label);
-        toast(`「${t.name}」を読み込みました` + (t.variables.length ? "。差し込み欄に値を入れてください" : ""), "ok");
+        toast(`Loaded "${t.name}"` + (t.variables.length ? ". Fill in the variable values." : ""), "ok");
       } catch (err) { toast(err.message, "err"); }
     };
     box.appendChild(item);
@@ -1029,16 +1029,16 @@ async function loadMyTemplates() {
 }
 
 async function saveAsTemplate() {
-  if (!S.label.elements.length) return toast("要素がないので保存できません", "err");
-  const name = (prompt("テンプレート名", S.label.name || "") || "").trim();
+  if (!S.label.elements.length) return toast("Cannot save: no elements", "err");
+  const name = (prompt("Template name", S.label.name || "") || "").trim();
   if (!name) return;
   try {
     const ex = await api("/api/templates/exists", { name });
-    if (ex.exists && !confirm(`「${name}」は既にあります。上書きしますか？`)) return;
+    if (ex.exists && !confirm(`"${name}" already exists. Overwrite?`)) return;
     await api("/api/templates/save", { name, label: { ...S.label, name }, overwrite: ex.exists });
-    toast(`テンプレート「${name}」を保存しました`, "ok");
+    toast(`Saved template "${name}"`, "ok");
     loadMyTemplates();
-  } catch (e) { toast("保存できませんでした: " + e.message, "err"); }
+  } catch (e) { toast("Could not save: " + e.message, "err"); }
 }
 
 // ---------------------------------------------------------------- printer
@@ -1049,21 +1049,21 @@ function setDeviceUI(state, label, battery = "") {
 }
 
 async function refreshDevice(quiet = true) {
-  if (!S.device) { setDeviceUI("", "プリンタ未設定"); return null; }
+  if (!S.device) { setDeviceUI("", "No printer set"); return null; }
   setDeviceUI("busy", S.device);
   try {
     const info = await api("/api/info");
     const bat = info.battery ? `${info.battery.percent}%${info.battery.charging ? "⚡" : ""}` : "";
     const st = info.status;
-    setDeviceUI(st && st.readiness === 0 ? "ok" : "err", st ? `${S.device} ・ ${st.readiness_text}` : S.device, bat);
+    setDeviceUI(st && st.readiness === 0 ? "ok" : "err", st ? `${S.device} · ${st.readiness_text}` : S.device, bat);
     if (st && st.has_rfid_tag && (st.label_width_mm !== S.label.media.width_mm || st.label_length_mm !== S.label.media.length_mm)) {
-      toast(`プリンタには ${st.label_width_mm}×${st.label_length_mm} mm のラベルが入っています`, "", 9000, [["サイズを合わせる", () => {
+      toast(`Printer has ${st.label_width_mm}×${st.label_length_mm} mm labels loaded`, "", 9000, [["Match size", () => {
         checkpoint(); S.label.media = { width_mm: st.label_width_mm, length_mm: st.label_length_mm }; S.zoom = 0; changed(true);
       }]]);
     }
     return info;
   } catch (e) {
-    setDeviceUI("err", `${S.device} ・ 接続できません`);
+    setDeviceUI("err", `${S.device} · Cannot connect`);
     if (!quiet) toast(e.message, "err", 8000);
     return null;
   }
@@ -1071,25 +1071,25 @@ async function refreshDevice(quiet = true) {
 
 async function doPrint() {
   if (S.printing) return;
-  if (!S.device) { toast("先にプリンタを設定してください", "err"); openDeviceDialog(); return; }
+  if (!S.device) { toast("Set a printer first", "err"); openDeviceDialog(); return; }
   const n = S.csv ? S.csv.length : 1;
-  if (n > 1 && !confirm(`CSV の ${n} 行分、${n * (S.label.copies || 1)} 枚を印刷します。よろしいですか？`)) return;
+  if (n > 1 && !confirm(`Print ${n} CSV rows, ${n * (S.label.copies || 1)} labels in total. Continue?`)) return;
   S.printing = true;
   const btn = $("#print");
   btn.disabled = true;
   btn.querySelector(".spinner").hidden = false;
-  setDeviceUI("busy", `${S.device} ・ 印刷中…`);
+  setDeviceUI("busy", `${S.device} · Printing…`);
   try {
     const r = await api("/api/print", { label: S.label, values: S.values, rows: S.csv, copies: S.label.copies, density: S.label.density });
     const warn = r.results.flatMap((x) => x.warnings).concat(r.render_warnings);
-    let head = r.ok ? `印刷しました（${r.sheets} 枚）` : `印刷に問題がありました（${r.printed}/${r.labels} 種類を印刷）`;
-    if (r.uncertain && r.uncertain.length) head += `\n${r.uncertain.join(", ")} 枚目は出ていない可能性があります（実物を確認してください）`;
-    if (r.not_sent) head += `\n残り ${r.not_sent} 種類は送っていません（ラベルを補充して、その分だけ印刷し直してください）`;
-    toast(head + (r.error ? `\n途中で止まりました。再度印刷すると重複します: ${r.error}` : "") + (warn.length ? "\n" + [...new Set(warn)].join("\n") : ""), r.ok ? "ok" : "err", 9000);
-    setDeviceUI(r.ok ? "ok" : "err", `${S.device} ・ ${r.ok ? "準備完了" : "要確認"}`, $("#device-battery").textContent);
+    let head = r.ok ? `Printed (${r.sheets} sheets)` : `Print problem (${r.printed}/${r.labels} labels printed)`;
+    if (r.uncertain && r.uncertain.length) head += `\nSheet(s) ${r.uncertain.join(", ")} may not have printed. Check the labels.`;
+    if (r.not_sent) head += `\n${r.not_sent} label(s) not sent. Refill labels and print those again.`;
+    toast(head + (r.error ? `\nStopped partway. Printing again will duplicate: ${r.error}` : "") + (warn.length ? "\n" + [...new Set(warn)].join("\n") : ""), r.ok ? "ok" : "err", 9000);
+    setDeviceUI(r.ok ? "ok" : "err", `${S.device} · ${r.ok ? "Ready" : "Check printer"}`, $("#device-battery").textContent);
   } catch (e) {
-    toast("印刷できませんでした: " + e.message, "err", 9000);
-    setDeviceUI("err", `${S.device} ・ エラー`);
+    toast("Could not print: " + e.message, "err", 9000);
+    setDeviceUI("err", `${S.device} · Error`);
   } finally {
     S.printing = false;
     btn.disabled = false;
@@ -1110,19 +1110,19 @@ async function scanDevices() {
   list.innerHTML = "";
   try {
     const r = await api(`/api/scan?ble=${$("#scan-ble").checked ? 1 : 0}`);
-    if (!r.suggestions.length) list.innerHTML = '<li class="none">見つかりませんでした。電源・ペアリングを確認してください。</li>';
+    if (!r.suggestions.length) list.innerHTML = '<li class="none">None found. Check power and pairing.</li>';
     for (const s of r.suggestions) {
       const li = document.createElement("li");
       li.innerHTML = `<div class="meta"><div>${esc(s.name || "P21")}</div><code>${esc(s.device)}</code> <span class="muted">${esc(s.via)}</span></div>`;
       const b = document.createElement("button");
       b.className = "btn";
-      b.textContent = "使う";
+      b.textContent = "Use";
       b.onclick = () => { $("#device-input").value = s.device; saveDevice(); };
       li.appendChild(b);
       list.appendChild(li);
     }
   } catch (e) {
-    list.innerHTML = `<li class="none">検索に失敗: ${esc(e.message)}</li>`;
+    list.innerHTML = `<li class="none">Scan failed:${esc(e.message)}</li>`;
   } finally {
     $("#scan-spinner").hidden = true;
     $("#scan").disabled = false;
@@ -1134,7 +1134,7 @@ async function saveDevice() {
   try {
     await api("/api/device", { device: dev || null });
     S.device = dev || null;
-    toast(dev ? `プリンタを ${dev} に設定しました` : "プリンタ設定を解除しました", "ok");
+    toast(dev ? `Printer set to ${dev}` : "Printer setting cleared", "ok");
     checkDevice();
   } catch (e) { toast(e.message, "err"); }
 }
@@ -1142,16 +1142,16 @@ async function saveDevice() {
 async function checkDevice() {
   const box = $("#device-info");
   box.hidden = false;
-  box.textContent = "確認中…";
+  box.textContent = "Checking…";
   const info = await refreshDevice(false);
-  if (!info) { box.textContent = "接続できませんでした。電源が入っているか、指定が正しいか確認してください。"; return; }
+  if (!info) { box.textContent = "Cannot connect. Check that the printer is on and the device spec is correct."; return; }
   const st = info.status, bat = info.battery, cfg = info.config;
   box.textContent = [
-    `デバイス: ${info.device}`,
-    st ? `状態: ${st.readiness_text}` : "",
-    st ? (st.has_rfid_tag ? `ラベル: ${st.label_width_mm}×${st.label_length_mm} mm（${st.label_color} / ${st.paper_type}）` : "ラベル: RFID を読めません") : "",
-    bat ? `電池: ${bat.percent}%${bat.charging ? "（充電中）" : ""}` : "",
-    cfg ? `ファームウェア ${cfg.firmware_version} / ${cfg.dpi} dpi / 自動オフ ${cfg.auto_off_minutes || "なし"} / ビープ ${cfg.beep ? "オン" : "オフ"}` : "",
+    `Device: ${info.device}`,
+    st ? `Status: ${st.readiness_text}` : "",
+    st ? (st.has_rfid_tag ? `Label: ${st.label_width_mm}×${st.label_length_mm} mm (${st.label_color} / ${st.paper_type})` : "Label: cannot read RFID") : "",
+    bat ? `Battery: ${bat.percent}%${bat.charging ? " (charging)" : ""}` : "",
+    cfg ? `Firmware ${cfg.firmware_version} / ${cfg.dpi} dpi / Auto-off ${cfg.auto_off_minutes || "none"} / Beep ${cfg.beep ? "on" : "off"}` : "",
   ].filter(Boolean).join("\n");
 }
 
@@ -1183,12 +1183,12 @@ function bind() {
     o.textContent = `${m.width_mm}×${m.length_mm} mm`;
     media.appendChild(o);
   }
-  media.insertAdjacentHTML("beforeend", '<option value="custom">カスタム…</option>');
+  media.insertAdjacentHTML("beforeend", '<option value="custom">Custom…</option>');
   media.onchange = () => {
     checkpoint();
     const [oW, oH] = canvasSize();
     if (media.value === "custom") {
-      const len = prompt("ラベルの長さ (mm)", S.label.media.length_mm);
+      const len = prompt("Label length (mm)", S.label.media.length_mm);
       if (len && +len > 0) S.label.media = { ...S.label.media, length_mm: +len };
     } else {
       const [w, l] = media.value.split("x").map(Number);
@@ -1213,7 +1213,7 @@ function bind() {
 
   $("#undo").onclick = undo;
   $("#redo").onclick = redo;
-  $("#new").onclick = () => { if (!S.label.elements.length || confirm("新しいラベルを作りますか？（元に戻すで戻せます）")) loadLabel({ media: S.label.media }); };
+  $("#new").onclick = () => { if (!S.label.elements.length || confirm("Create a new label? (Undo to revert)")) loadLabel({ media: S.label.media }); };
   $("#open").onclick = () => { $("#open-file").value = ""; $("#open-file").click(); };
   $("#open-file").onchange = (e) => e.target.files[0] && openFile(e.target.files[0]);
   $("#save").onclick = saveFile;
@@ -1232,12 +1232,12 @@ function bind() {
     const buf = await f.arrayBuffer();
     let text;
     try { text = new TextDecoder("utf-8", { fatal: true }).decode(buf); }
-    catch { text = new TextDecoder("shift_jis").decode(buf); toast("CSV を Shift_JIS（Excel 形式）として読み込みました", "", 4000); }
+    catch { text = new TextDecoder("shift_jis").decode(buf); toast("CSV read as Shift_JIS (Excel format)", "", 4000); }
     const rows = parseCSV(text);
-    if (!rows.length) return toast("CSV にデータ行がありません", "err");
+    if (!rows.length) return toast("CSV has no data rows", "err");
     S.csv = rows; S.csvRow = 0;
     const missing = S.render.variables.filter((v) => !(v in rows[0]));
-    if (missing.length) toast(`CSV に無い変数: ${missing.join(", ")}（入力欄の値を使います）`, "", 7000);
+    if (missing.length) toast(`Variables not in CSV: ${missing.join(", ")} (using the input field values)`, "", 7000);
     renderVars(); requestRender();
   };
   $("#csv-clear").onclick = () => { S.csv = null; renderVars(); requestRender(); };
@@ -1251,7 +1251,7 @@ function bind() {
     const beep = $("#set-beep").value, off = $("#set-autooff").value;
     try {
       await api("/api/settings", { beep: beep === "" ? null : beep === "1", auto_off: off === "" ? null : +off });
-      toast("設定しました", "ok");
+      toast("Settings applied", "ok");
       checkDevice();
     } catch (e) { toast(e.message, "err"); }
   };
@@ -1297,7 +1297,7 @@ async function loadFonts() {
 }
 
 async function main() {
-  try { S.meta = await api("/api/meta"); } catch (e) { toast("サーバに接続できません: " + e.message, "err", 20000); return; }
+  try { S.meta = await api("/api/meta"); } catch (e) { toast("Cannot connect to server: " + e.message, "err", 20000); return; }
   S.device = S.meta.device || null;
   let saved = null;
   try { saved = JSON.parse(localStorage.getItem("p21studio.label") || "null"); } catch {}

@@ -35,7 +35,7 @@ def templates_dir() -> Path:
 def _check_name(name: str) -> str:
     name = (name or "").strip()
     if not name or len(name) > 60 or _BAD_CHARS.search(name) or name in (".", "..") or name.startswith("."):
-        raise TemplateError("テンプレート名は 1〜60 文字で、\\ / : * ? \" < > | を含まない名前にしてください")
+        raise TemplateError("Template name must be 1-60 characters and must not contain \\ / : * ? \" < > |")
     return name
 
 
@@ -78,7 +78,7 @@ def _embed_images(label: dict, name: str) -> dict:
             pattern = labelmod.VAR_RE.sub("*", p.name)
             files = sorted(p.parent.glob(pattern)) if "{{" not in str(p.parent) else []
             if not files:
-                raise TemplateError(f"{src} に当てはまる画像が {p.parent} にありません")
+                raise TemplateError(f"No image matching {src} in {p.parent}")
             dest = assets_dir(name)
             dest.mkdir(parents=True, exist_ok=True)
             for f in files:
@@ -87,7 +87,7 @@ def _embed_images(label: dict, name: str) -> dict:
             el["src"] = str(dest / p.name)
             continue
         if not p.is_file():
-            raise TemplateError(f"画像ファイルが見つかりません: {p}")
+            raise TemplateError(f"Image file not found: {p}")
         mime = mimetypes.guess_type(p.name)[0] or "image/png"
         el["src"] = f"data:{mime};base64," + base64.b64encode(p.read_bytes()).decode()
     return out
@@ -122,15 +122,15 @@ def exists(name: str) -> bool:
 def load_template(name: str) -> dict:
     p = _path(name)
     if not p.is_file():
-        known = ", ".join(t["name"] for t in list_templates()) or "（まだありません）"
-        raise TemplateError(f"テンプレート {name!r} はありません。保存済み: {known}")
+        known = ", ".join(t["name"] for t in list_templates()) or "(none yet)"
+        raise TemplateError(f"Template {name!r} not found. Saved: {known}")
     return labelmod.load(p)
 
 
 def save_template(name: str, label: dict, overwrite: bool = False) -> Path:
     p = _path(name)
     if p.exists() and not overwrite:
-        raise TemplateError(f"テンプレート {name!r} は既にあります（上書きするには overwrite / --force）")
+        raise TemplateError(f"Template {name!r} already exists (use overwrite / --force to replace it)")
     lab = labelmod.normalize(_embed_images(labelmod.normalize(label), name))
     lab["name"] = lab.get("name") or name
     p.parent.mkdir(parents=True, exist_ok=True)
@@ -143,7 +143,7 @@ def save_template(name: str, label: dict, overwrite: bool = False) -> Path:
 def delete_template(name: str) -> None:
     p = _path(name)
     if not p.is_file():
-        raise TemplateError(f"テンプレート {name!r} はありません")
+        raise TemplateError(f"Template {name!r} not found")
     p.unlink()
     import shutil
 

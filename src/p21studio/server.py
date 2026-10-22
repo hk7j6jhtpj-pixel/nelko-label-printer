@@ -51,7 +51,7 @@ def _only_data_uris(label) -> dict:
     from .templates import is_template_asset
 
     if not isinstance(label, dict):
-        raise labelmod.LabelError("label がありません")
+        raise labelmod.LabelError("Missing label")
     for el in label.get("elements") or []:
         if not (isinstance(el, dict) and el.get("type") == "image" and el.get("src")):
             continue
@@ -62,7 +62,7 @@ def _only_data_uris(label) -> dict:
             continue
         if "{{" in src and is_template_asset(labelmod.VAR_RE.sub("x", src)):
             continue  # validated again after substitution
-        raise labelmod.LabelError("GUI では画像はアップロード（data: URI）のみ使えます")
+        raise labelmod.LabelError("The GUI only supports uploaded images (data: URI)")
     return label
 
 
@@ -87,8 +87,8 @@ def safe_device(spec: str | None) -> str | None:
     if isinstance(t, SerialTransport) and SERIAL_RE.match(t.port):
         return spec
     if isinstance(t, MockTransport):
-        raise TransportError("GUI からは保存先付きの mock は使えません（mock: を使ってください）")
-    raise TransportError(f"GUI からは使えないデバイス指定です: {spec}")
+        raise TransportError("The GUI cannot use mock with a save path (use mock:)")
+    raise TransportError(f"Device not allowed from the GUI: {spec}")
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -145,7 +145,7 @@ class Handler(BaseHTTPRequestHandler):
         if self.loopback_only and self._hostname() not in LOOPBACK:
             return "forbidden host"  # DNS rebinding
         if not self._token_ok(query):
-            return "このサーバはトークン付きの URL でのみ使えます（起動時に表示された URL を開いてください）"
+            return "This server only works with the token URL (open the URL shown at startup)"
         if api_call:
             origin = self.headers.get("Origin")
             if origin and origin != f"http://{self.headers.get('Host')}":
@@ -158,18 +158,18 @@ class Handler(BaseHTTPRequestHandler):
     def _body(self) -> dict:
         ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
         if ctype != "application/json":
-            raise ValueError("Content-Type は application/json にしてください")
+            raise ValueError("Content-Type must be application/json")
         try:
             n = int(self.headers.get("Content-Length") or 0)
         except ValueError:
-            raise ValueError("Content-Length が不正です")
+            raise ValueError("Invalid Content-Length")
         if n < 0:
-            raise ValueError("Content-Length が不正です")
+            raise ValueError("Invalid Content-Length")
         if n > MAX_BODY:
-            raise ValueError("リクエストが大きすぎます")
+            raise ValueError("Request too large")
         data = json.loads(self.rfile.read(n) or b"{}")
         if not isinstance(data, dict):
-            raise ValueError("JSON オブジェクトを送ってください")
+            raise ValueError("Send a JSON object")
         return data
 
     def _device(self, value) -> str | None:
@@ -252,7 +252,7 @@ class Handler(BaseHTTPRequestHandler):
                 lab = _only_data_uris(body.get("label"))
                 rows = body.get("rows")
                 if rows is not None and (not isinstance(rows, list) or len(rows) > 1000):
-                    raise ValueError("rows は 1000 行までの配列にしてください")
+                    raise ValueError("rows must be an array of at most 1000 rows")
                 _checked_labels(lab, body.get("values"), rows)
                 res = api.print_labels(lab, self._device(body.get("device")), body.get("copies"), body.get("density"), body.get("values"), rows)
                 return self._json(res)
@@ -281,9 +281,9 @@ class Handler(BaseHTTPRequestHandler):
             if url.path == "/api/settings":
                 beep, auto_off = body.get("beep"), body.get("auto_off")
                 if beep is not None and not isinstance(beep, bool):
-                    raise ValueError("beep は true / false / null")
+                    raise ValueError("beep must be true / false / null")
                 if auto_off is not None and auto_off not in (0, 15, 30, 60):
-                    raise ValueError("auto_off は 0 / 15 / 30 / 60 / null")
+                    raise ValueError("auto_off must be 0 / 15 / 30 / 60 / null")
                 cfg = api.apply_settings(self._device(body.get("device")), beep, auto_off)
                 return self._json({"ok": True, "config": cfg})
             return self._send(404, b"not found", "text/plain")
@@ -298,13 +298,13 @@ def serve(host: str = "127.0.0.1", port: int = 8721, open_browser: bool = True, 
     try:
         httpd = ThreadingHTTPServer((host, port), Handler)
     except OSError as e:
-        print(f"ポート {port} を使えません（{e}）。--port で別の番号を指定してください。", file=sys.stderr)
+        print(f"Cannot use port {port} ({e}). Pick another with --port.", file=sys.stderr)
         raise SystemExit(1)
     shown = "127.0.0.1" if host in ("0.0.0.0", "::") else host
     url = f"http://{shown}:{port}/" + (f"?token={Handler.token}" if Handler.token else "")
-    print(f"P21 Studio GUI: {url}  (Ctrl+C で終了)", flush=True)
+    print(f"P21 Studio GUI: {url}  (Ctrl+C to quit)", flush=True)
     if Handler.token:
-        print("注意: ネットワーク上の他の端末から使えます。上のトークン付き URL（IP 部分はこの PC のアドレスに置き換え）を知っている人だけが操作できます。", flush=True)
+        print("Note: other devices on the network can reach this. Only people with the token URL above (replace the IP with this PC's address) can use it.", flush=True)
     # warm up font loading so the first preview is quick
     threading.Thread(target=lambda: api.render_label(labelmod.EXAMPLE), daemon=True).start()
     if open_browser:

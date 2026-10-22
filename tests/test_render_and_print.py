@@ -60,7 +60,7 @@ def test_render_warnings_for_impossible_content():
         {"type": "barcode", "x": 250, "y": 0, "w": 60, "h": 90, "data": "123"},
     ]}
     w = "\n".join(render(lab).warnings)
-    assert "qr" in w and "text" in w and "はみ出" in w
+    assert "qr" in w and "text" in w and "overflows" in w
 
 
 def test_all_element_types_render():

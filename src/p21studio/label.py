@@ -37,6 +37,8 @@ TYPE_DEFAULTS: dict[str, dict] = {
         "min_size": 8,
         "max_size": 200,
         "bold": False,
+        "italic": False,
+        "underline": False,
         "align": "center",
         "valign": "middle",
         "line_spacing": 1.15,
@@ -78,13 +80,13 @@ def _num(v, path: str, errors: list[str], integer: bool = False, lo: float | Non
         try:
             v = float(v)
         except (TypeError, ValueError):
-            errors.append(f"{path}: 数値が必要です (got {v!r})")
+            errors.append(f"{path}: must be a number (got {v!r})")
             return fallback
     if not math.isfinite(v):
-        errors.append(f"{path}: 有限の数値が必要です (got {v!r})")
+        errors.append(f"{path}: must be a finite number (got {v!r})")
         return fallback
     if (lo is not None and v < lo) or (hi is not None and v > hi):
-        errors.append(f"{path}: {lo} 〜 {hi} の範囲で指定してください (got {v!r})")
+        errors.append(f"{path}: must be between {lo} and {hi} (got {v!r})")
         if lo is not None:
             v = max(v, lo)
         if hi is not None:
@@ -105,11 +107,11 @@ def _bool(v, path: str, errors: list[str]) -> bool:
         return bool(v)
     if isinstance(v, str) and v.strip().lower() in _TRUE | _FALSE:
         return v.strip().lower() in _TRUE
-    errors.append(f"{path}: true か false を指定してください (got {v!r})")
+    errors.append(f"{path}: must be true or false (got {v!r})")
     return False
 
 
-BOOL_FIELDS = ("bold", "wrap", "vertical", "fill", "show_text", "invert")
+BOOL_FIELDS = ("bold", "italic", "underline", "wrap", "vertical", "fill", "show_text", "invert")
 COORD_MAX = 10000
 KNOWN_EXTRA_KEYS = {"type", "id", "name", "locked", "hidden", "note"}
 
@@ -123,18 +125,18 @@ def unknown_keys(el: dict) -> list[str]:
 def normalize(label: dict) -> dict:
     """Return a copy of the label with defaults filled in. Raises LabelError on invalid input."""
     if not isinstance(label, dict):
-        raise LabelError("ラベルは JSON オブジェクトである必要があります")
+        raise LabelError("Label must be a JSON object")
     errors: list[str] = []
     out = copy.deepcopy(label)
     out.setdefault("version", FORMAT_VERSION)
     media = out.get("media") or "14x40"
     if isinstance(media, str):
         if media not in MEDIA_PRESETS:
-            errors.append(f"media: 不明なプリセット {media!r}（{', '.join(MEDIA_PRESETS)}）")
+            errors.append(f"media: unknown preset {media!r} ({', '.join(MEDIA_PRESETS)})")
             media = "14x40"
         media = dict(MEDIA_PRESETS[media])
     elif not isinstance(media, dict):
-        errors.append("media: プリセット名かオブジェクトを指定してください")
+        errors.append("media: must be a preset name or an object")
         media = dict(MEDIA_PRESETS["14x40"])
     media.setdefault("width_mm", 14)
     media.setdefault("length_mm", 40)
@@ -145,28 +147,28 @@ def normalize(label: dict) -> dict:
     out["media"] = media
     out.setdefault("orientation", "landscape")
     if out["orientation"] not in ("landscape", "portrait"):
-        errors.append("orientation: landscape か portrait")
+        errors.append("orientation: must be landscape or portrait")
     out["invert"] = _bool(out.get("invert", False), "invert", errors)
     out["density"] = _num(out.get("density", 15), "density", errors, integer=True, lo=1, hi=15)
     out["copies"] = _num(out.get("copies", 1), "copies", errors, integer=True, lo=1, hi=99)
     variables = out.get("variables") or {}
     if not isinstance(variables, dict):
-        errors.append('variables: {"名前": "値"} のオブジェクトが必要です')
+        errors.append('variables: must be an object like {"name": "value"}')
         variables = {}
     out["variables"] = {str(k): "" if v is None else str(v) for k, v in variables.items()}
     elements = out.get("elements", [])
     if not isinstance(elements, list):
-        errors.append("elements: 配列が必要です")
+        errors.append("elements: must be an array")
         elements = []
     norm = []
     for i, el in enumerate(elements):
         p = f"elements[{i}]"
         if not isinstance(el, dict):
-            errors.append(f"{p}: オブジェクトが必要です")
+            errors.append(f"{p}: must be an object")
             continue
         t = el.get("type")
         if t not in ELEMENT_TYPES:
-            errors.append(f"{p}.type: {t!r} は不明です（{', '.join(ELEMENT_TYPES)}）")
+            errors.append(f"{p}.type: {t!r} is unknown ({', '.join(ELEMENT_TYPES)})")
             continue
         e = {**COMMON_DEFAULTS, **TYPE_DEFAULTS[t], **el}
         if t == "line":
@@ -184,9 +186,9 @@ def normalize(label: dict) -> dict:
         except (TypeError, ValueError):
             pass
         if e["rotate"] not in (0, 90, 180, 270):
-            errors.append(f"{p}.rotate: 0/90/180/270 のいずれか")
+            errors.append(f"{p}.rotate: must be 0/90/180/270")
         if e["color"] not in ("black", "white"):
-            errors.append(f"{p}.color: black か white")
+            errors.append(f"{p}.color: must be black or white")
         for k in BOOL_FIELDS:
             if k in e:
                 e[k] = _bool(e[k], f"{p}.{k}", errors)
@@ -199,7 +201,7 @@ def normalize(label: dict) -> dict:
             e["min_size"] = _num(e["min_size"], f"{p}.min_size", errors, integer=True, lo=1, hi=1000)
             e["max_size"] = _num(e["max_size"], f"{p}.max_size", errors, integer=True, lo=1, hi=1000)
             if e["min_size"] > e["max_size"]:
-                errors.append(f"{p}: min_size は max_size 以下にしてください")
+                errors.append(f"{p}: min_size must not exceed max_size")
             e["line_spacing"] = _num(e["line_spacing"], f"{p}.line_spacing", errors, lo=0.5, hi=5)
             e["letter_spacing"] = _num(e["letter_spacing"], f"{p}.letter_spacing", errors, integer=True, lo=-50, hi=200)
             e["stroke"] = _num(e["stroke"], f"{p}.stroke", errors, integer=True, lo=0, hi=20)
@@ -242,16 +244,16 @@ def load(path: str | Path) -> dict:
         else:
             p = Path(path)
             if p.is_dir():
-                raise LabelError(f"{path} はフォルダです。ラベル JSON ファイルを指定してください")
+                raise LabelError(f"{path} is a folder. Give a label JSON file.")
             data = json.loads(p.read_text(encoding="utf-8-sig"))
             if isinstance(data, dict):
                 data.setdefault("_base_dir", str(p.resolve().parent))
     except UnicodeDecodeError:
-        raise LabelError(f"{path} は UTF-8 のテキストではありません")
+        raise LabelError(f"{path} is not UTF-8 text")
     except ValueError as e:
         if isinstance(e, LabelError):
             raise
-        raise LabelError(f"{path} は正しい JSON ではありません: {e}")
+        raise LabelError(f"{path} is not valid JSON: {e}")
     return normalize(data)
 
 
@@ -294,7 +296,7 @@ def substitute(label: dict, values: dict | None = None, n: int = 1) -> dict:
             if name == "n":
                 return format(n, fmt or "")
         except ValueError:
-            raise LabelError(f"{m.group(0)} の書式が不正です")
+            raise LabelError(f"Invalid format in {m.group(0)}")
         return m.group(0)
 
     out = copy.deepcopy(label)
@@ -337,7 +339,7 @@ def read_csv(path_or_text: str, is_text: bool = False) -> list[dict]:
             try:
                 text = data.decode("cp932")  # Excel on Japanese Windows saves Shift_JIS
             except UnicodeDecodeError:
-                raise LabelError(f"{path_or_text} の文字コードを判別できません（UTF-8 で保存してください）")
+                raise LabelError(f"Cannot detect encoding of {path_or_text} (save as UTF-8)")
     rows = []
     for r in csv.DictReader(io.StringIO(text)):
         row = {k.strip(): ("" if v is None else str(v)) for k, v in r.items() if isinstance(k, str)}
@@ -349,12 +351,12 @@ def read_csv(path_or_text: str, is_text: bool = False) -> list[dict]:
 # --- JSON schema (for AI tools) --------------------------------------------
 def json_schema() -> dict:
     box = {
-        "x": {"type": "integer", "description": "左上 X（ドット）"},
-        "y": {"type": "integer", "description": "左上 Y（ドット）"},
+        "x": {"type": "integer", "description": "Top-left X (dots)"},
+        "y": {"type": "integer", "description": "Top-left Y (dots)"},
         "w": {"type": "integer", "minimum": 1},
         "h": {"type": "integer", "minimum": 1},
-        "rotate": {"enum": [0, 90, 180, 270], "default": 0, "description": "枠内で内容を回転（時計回り）"},
-        "color": {"enum": ["black", "white"], "default": "black", "description": "white は黒い図形の上を白抜きする"},
+        "rotate": {"enum": [0, 90, 180, 270], "default": 0, "description": "Rotate content within the box (clockwise)"},
+        "color": {"enum": ["black", "white"], "default": "black", "description": "white knocks out white over black shapes"},
     }
 
     def el(t: str, props: dict, required: list[str]) -> dict:
@@ -377,7 +379,7 @@ def json_schema() -> dict:
             "version": {"const": 1},
             "name": {"type": "string"},
             "media": {
-                "description": "ラベルロールのサイズ。プリセット名 (14x40 など) かオブジェクト",
+                "description": "Label roll size. Preset name (e.g. 14x40) or object",
                 "oneOf": [
                     {"enum": list(MEDIA_PRESETS)},
                     {
@@ -385,40 +387,42 @@ def json_schema() -> dict:
                         "properties": {
                             "width_mm": {"type": "number", "default": 14},
                             "length_mm": {"type": "number", "default": 40},
-                            "length_dots": {"type": "integer", "description": "印字ドット長の上書き（通常不要）"},
+                            "length_dots": {"type": "integer", "description": "Override print length in dots (usually not needed)"},
                         },
                     },
                 ],
             },
             "orientation": {"enum": ["landscape", "portrait"], "default": "landscape"},
-            "invert": {"type": "boolean", "default": False, "description": "全体を白黒反転"},
+            "invert": {"type": "boolean", "default": False, "description": "Invert black and white"},
             "density": {"type": "integer", "minimum": 1, "maximum": 15, "default": 15},
             "copies": {"type": "integer", "minimum": 1, "default": 1},
-            "variables": {"type": "object", "additionalProperties": {"type": "string"}, "description": "{{name}} の既定値"},
+            "variables": {"type": "object", "additionalProperties": {"type": "string"}, "description": "Default values for {{name}}"},
             "elements": {
                 "type": "array",
-                "description": "後ろの要素ほど上に描画される",
+                "description": "Later elements are drawn on top",
                 "items": {
                     "oneOf": [
                         el("text", {
-                            "text": {"type": "string", "description": "\\n で改行。{{var}} {{date}} {{date:%m/%d}} {{time}} {{n}} が使える"},
-                            "font": {"type": "string", "default": "auto", "description": "auto / ファミリ名 / フォントファイルのパス"},
-                            "size": {"oneOf": [{"const": "auto"}, {"type": "integer"}], "default": "auto", "description": "フォントサイズ(px, em 単位なので字形はこれより少し小さい)。auto は枠に収まる最大サイズ"},
+                            "text": {"type": "string", "description": "\\n for newline. Supports {{var}} {{date}} {{date:%m/%d}} {{time}} {{n}}"},
+                            "font": {"type": "string", "default": "auto", "description": "auto / family name / font file path"},
+                            "size": {"oneOf": [{"const": "auto"}, {"type": "integer"}], "default": "auto", "description": "Font size (px, em units, so glyphs are slightly smaller). auto = largest size that fits the box"},
                             "min_size": {"type": "integer", "default": 8},
                             "max_size": {"type": "integer", "default": 200},
                             "bold": {"type": "boolean", "default": False},
+                            "italic": {"type": "boolean", "default": False, "description": "slanted (synthetic oblique)"},
+                            "underline": {"type": "boolean", "default": False},
                             "align": {"enum": ["left", "center", "right"], "default": "center"},
                             "valign": {"enum": ["top", "middle", "bottom"], "default": "middle"},
                             "line_spacing": {"type": "number", "default": 1.15},
                             "letter_spacing": {"type": "integer", "default": 0},
-                            "wrap": {"type": "boolean", "default": True, "description": "枠幅で自動改行"},
-                            "vertical": {"type": "boolean", "default": False, "description": "縦書き"},
-                            "stroke": {"type": "integer", "default": 0, "description": "文字を太らせる(px)。20px 未満の文字では 1 でも潰れやすい"},
+                            "wrap": {"type": "boolean", "default": True, "description": "Wrap at box width"},
+                            "vertical": {"type": "boolean", "default": False, "description": "Vertical text"},
+                            "stroke": {"type": "integer", "default": 0, "description": "Thicken text (px). Under 20px, even 1 can blur the glyphs"},
                         }, ["text"]),
                         el("qr", {
                             "data": {"type": "string"},
                             "ecc": {"enum": ["L", "M", "Q", "H"], "default": "M"},
-                            "border": {"type": "integer", "default": 0, "description": "クワイエットゾーン（モジュール数）"},
+                            "border": {"type": "integer", "default": 0, "description": "Quiet zone (modules)"},
                         }, ["data"]),
                         el("barcode", {
                             "data": {"type": "string"},
@@ -427,9 +431,9 @@ def json_schema() -> dict:
                             "text_size": {"type": "integer", "default": 14},
                         }, ["data"]),
                         el("image", {
-                            "src": {"type": "string", "description": "ファイルパス（ラベルファイルからの相対可）か data: URI"},
+                            "src": {"type": "string", "description": "File path (relative to the label file allowed) or data: URI"},
                             "fit": {"enum": ["contain", "cover", "stretch"], "default": "contain"},
-                            "dither": {"enum": ["floyd", "threshold"], "default": "floyd", "description": "写真は floyd、ロゴ/線画は threshold"},
+                            "dither": {"enum": ["floyd", "threshold"], "default": "floyd", "description": "floyd for photos, threshold for logos/line art"},
                             "threshold": {"type": "integer", "default": 128},
                             "invert": {"type": "boolean", "default": False},
                             "brightness": {"type": "number", "default": 1.0},
@@ -473,5 +477,5 @@ EXAMPLE = {
         {"type": "text", "x": 92, "y": 8, "w": 184, "h": 52, "text": "{{title}}", "bold": True},
         {"type": "text", "x": 92, "y": 62, "w": 184, "h": 26, "text": "{{date}}"},
     ],
-    "variables": {"title": "ラベル見本"},
+    "variables": {"title": "Sample label"},
 }

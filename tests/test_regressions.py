@@ -60,7 +60,7 @@ def test_cross_origin_and_wrong_content_type_rejected(server):
     assert _req(server, "POST", "/api/render", lab, {"Content-Type": "text/plain"})[0] == 400
     assert _req(server, "GET", "/api/meta", headers={"Host": "evil.example"})[0] == 403
     status, body = _req(server, "POST", "/api/print", {"label": labelmod.EXAMPLE, "device": "file:x.bin"})
-    assert status == 502 and "使えないデバイス" in body.decode()
+    assert status == 502 and "Device not allowed" in body.decode()
 
 
 def test_static_whitelist(server):
@@ -116,14 +116,14 @@ def test_auto_size_is_not_fooled_by_kinsoku():
     auto = render(lab).boxes[0]["font_size"]
     for size in range(auto + 1, auto + 13):
         fixed = {"elements": [{**lab["elements"][0], "size": size}]}
-        assert any("はみ出" in w for w in render(fixed).warnings), f"{size}px fits but auto chose {auto}px"
+        assert any("overflows" in w for w in render(fixed).warnings), f"{size}px fits but auto chose {auto}px"
 
 
 def test_barcode_rewrite_and_quality_warnings():
     w = render({"elements": [{"type": "barcode", "x": 0, "y": 0, "w": 280, "h": 90, "data": "4901234567890", "symbology": "jan"}]}).warnings
     assert any("4901234567894" in x for x in w)
     w = render({"elements": [{"type": "barcode", "x": 0, "y": 0, "w": 100, "h": 90, "data": "4901234567894", "symbology": "ean13"}]}).warnings
-    assert any("1 モジュール 1px" in x for x in w)
+    assert any("1px per module" in x for x in w)
     r = render({"elements": [{"type": "barcode", "x": 0, "y": 0, "w": 280, "h": 90, "data": "(01)12345678901231", "symbology": "gs1_128"}]})
     assert not r.errors
 
@@ -275,5 +275,5 @@ def test_running_out_of_labels_is_reported(tmp_path, monkeypatch):
     res = api.print_labels(lab, "mock:", rows=[{"a": str(i)} for i in range(4)])
     assert res["ok"] is False
     assert res["printed"] == 2 and res["uncertain"] == [3] and res["not_sent"] == 1
-    assert any("ラベル切れ" in w for w in res["results"][2]["warnings"])
+    assert any("Out of labels" in w for w in res["results"][2]["warnings"])
     assert len(made[0].printed) == 2

@@ -1,4 +1,60 @@
-# P21 Studio
+# Nelko P21 Label Printer (desktop)
+
+Print labels on a **Nelko P21** from a Windows or Mac computer instead of the phone app.
+The app works entirely offline: it only talks to the printer over Bluetooth.
+
+A fork of [p21studio](https://github.com/mocchan0221/p21studio) (MIT) by mocchan0221, which does the
+printer protocol. This fork adds a minimal desktop app, italic/underline text, and English messages.
+
+## Desktop app
+
+- **Print page**: type text; bold, italic, underline, font, size; live preview; quantity; print now or add to a queue.
+- **History page**: the last 50 printed labels. Click one to load it, or reprint it. Searchable.
+- Light, dark or system theme. Labels: 14 × 40 mm.
+
+| Shortcut | Action |
+|---|---|
+| Ctrl+Enter | Print now |
+| Ctrl+Shift+Enter | Add to queue |
+| Ctrl+P | Print queue |
+| Ctrl+B / I / U | Bold / italic / underline |
+| Ctrl+Z | Undo removing a queue item |
+| Ctrl+1 / Ctrl+2 | Print page / History page |
+| Ctrl+F | Search history |
+
+### Set up (once)
+
+```bash
+python -m venv .venv
+.venv/Scripts/pip install -e .        # macOS: .venv/bin/pip install -e .
+```
+
+### Run
+
+```bash
+.venv/Scripts/p21-desktop
+```
+
+Turn the printer on and close the Nelko phone app first: the P21 accepts one connection at a time.
+The app finds the printer over Bluetooth LE without pairing. If it doesn't, pair "P21" in the
+system Bluetooth settings and click the Bluetooth icon in the app.
+
+To try the app without using labels, run it with `P21_DEVICE=mock:`. Each "printed" label is
+saved as a PNG instead.
+
+### Privacy
+
+The desktop app makes no internet connections. It uses Bluetooth only, and its only dependencies are
+Pillow and bleak (plus the bundled [Lucide](https://lucide.dev) icon font, ISC licence). History and settings
+are saved in your user folder (`%APPDATA%\p21studio` on Windows, `~/Library/Application Support/p21studio`
+on macOS). The original project's optional browser GUI (`p21 gui`) and AI server (`p21 mcp`) run local
+servers. The desktop app never starts them.
+
+---
+
+## Original project documentation
+
+### P21 Studio
 
 Nelko P21（Bluetooth ラベルプリンタ）を **スマホアプリなしで PC から使う**ためのツールです。
 

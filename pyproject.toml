@@ -32,6 +32,9 @@ dev = ["pytest>=8"]
 [project.scripts]
 p21 = "p21studio.cli:main"
 
+[project.gui-scripts]
+p21-desktop = "p21studio.desktop:main"
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/p21studio"]
 

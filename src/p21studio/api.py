@@ -30,7 +30,7 @@ def resolve_device(spec: str | None = None, scan_ble: bool = True) -> str:
     if found["suggestions"]:
         return found["suggestions"][0]["device"]
     raise NoDeviceError(
-        "プリンタが見つかりません。電源を入れてペアリングするか、`p21 scan` で探して `p21 use <device>` で指定してください。"
+        "Printer not found. Turn it on and pair it, or run `p21 scan`, then `p21 use <device>`."
     )
 
 
@@ -48,7 +48,7 @@ def load_source(source: str | None = None, text: str | None = None, image: str |
     if image is not None or (source and Path(source).suffix.lower() in IMAGE_EXTS):
         return image_label(image or source, media or "14x40")
     if not source:
-        raise labelmod.LabelError("ラベルファイル、--text、--image のいずれかを指定してください")
+        raise labelmod.LabelError("Give a label file, --text, or --image")
     lab = labelmod.load(source)
     if media:
         lab["media"] = dict(labelmod.MEDIA_PRESETS[media])
@@ -57,9 +57,9 @@ def load_source(source: str | None = None, text: str | None = None, image: str |
 
 def _check_values(values, rows=None) -> None:
     if values is not None and not isinstance(values, dict):
-        raise labelmod.LabelError("values は {\"名前\": \"値\"} のオブジェクトにしてください")
+        raise labelmod.LabelError("values must be an object like {\"name\": \"value\"}")
     if rows is not None and (not isinstance(rows, list) or not all(isinstance(r, dict) for r in rows)):
-        raise labelmod.LabelError("rows はオブジェクトの配列にしてください")
+        raise labelmod.LabelError("rows must be an array of objects")
 
 
 def expand(label: dict, values: dict | None = None, rows: list[dict] | None = None) -> list[dict]:
@@ -100,7 +100,7 @@ def print_labels(
         errors += r.errors
         rendered.append(r)
     if errors and not force:
-        raise RenderErrors("描画できない要素があるので印刷しません:\n" + "\n".join(dict.fromkeys(errors)))
+        raise RenderErrors("Not printing: some elements cannot be rendered:\n" + "\n".join(dict.fromkeys(errors)))
     spec = resolve_device(device)
     media = label["media"]
     copies = copies if copies is not None else label.get("copies", 1)
