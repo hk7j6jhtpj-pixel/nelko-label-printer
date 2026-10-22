@@ -1,6 +1,6 @@
 # Instructions for AI agents: printing labels on a Nelko P21
 
-This repository ships `p21`, a CLI (and MCP server) for the Nelko P21 thermal label printer.
+This repository ships `p21`, a CLI for the Nelko P21 thermal label printer.
 You can design a label as JSON, render it to PNG to check it visually, and print it.
 
 ## Workflow
@@ -46,19 +46,12 @@ Quick one-offs: `p21 print -t "text\nsecond line"` or `p21 print image.png`.
   or a font file path works; an unknown name produces a warning and falls back to auto.
 - `size` is the font em size, so glyphs are slightly smaller than the number (and the reported size can exceed h a bit).
 
-## MCP
-
-`p21 mcp` runs an MCP server on stdio with tools `p21_label_format`, `p21_render` (returns the PNG),
-`p21_print`, `p21_status`, `p21_scan`, `p21_fonts`, `p21_list_templates`, `p21_save_template`,
-`p21_save_label`, `p21_load_label`. `p21_render` / `p21_print` accept `template` instead of `label`.
-Register with Claude Code: `claude mcp add p21 -- p21 mcp`.
-
 ## Code map (for changing the tool itself)
 
 - `src/p21studio/protocol.py` wire format (see `research/02-protocol.md`)
 - `src/p21studio/transports.py` RFCOMM / serial / BLE / mock / file
 - `src/p21studio/printer.py` readiness check, print, status
 - `src/p21studio/label.py` JSON model, validation, variables, schema
-- `src/p21studio/render.py` renderer shared by GUI, CLI, MCP and printing
-- `src/p21studio/cli.py`, `server.py` + `web/` (GUI), `mcp.py`
+- `src/p21studio/render.py` renderer shared by the desktop app, CLI and printing
+- `src/p21studio/cli.py`, `desktop.py` (tkinter app)
 - Tests: `pytest`
