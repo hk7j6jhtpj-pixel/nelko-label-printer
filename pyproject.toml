@@ -5,17 +5,16 @@ build-backend = "hatchling.build"
 [project]
 name = "p21studio"
 version = "0.1.0"
-description = "Desktop GUI, CLI and AI (MCP) tooling for the Nelko P21 Bluetooth label printer"
+description = "Desktop app and CLI tooling for the Nelko P21 Bluetooth label printer"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
 authors = [{ name = "p21studio contributors" }]
-keywords = ["nelko", "p21", "label printer", "thermal printer", "tspl", "bluetooth", "mcp"]
+keywords = ["nelko", "p21", "label printer", "thermal printer", "tspl", "bluetooth"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
     "Environment :: Console",
-    "Environment :: Web Environment",
     "Topic :: Printing",
 ]
 dependencies = [

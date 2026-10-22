@@ -1,4 +1,4 @@
-"""Operations shared by the CLI, the GUI server and the MCP server."""
+"""Operations shared by the CLI, the desktop app."""
 
 from __future__ import annotations
 

@@ -5,7 +5,6 @@ from PIL import Image
 
 from p21studio import templates
 from p21studio.cli import main
-from p21studio.mcp import Server
 
 
 @pytest.fixture(autouse=True)
@@ -41,20 +40,13 @@ def test_images_are_embedded(tmp_path):
     assert templates.load_template("logo")["elements"][0]["src"].startswith("data:image/png;base64,")
 
 
-def test_cli_and_mcp_use_templates(tmp_path, capsys):
+def test_cli_uses_templates(tmp_path, capsys):
     f = tmp_path / "l.json"
     f.write_text(json.dumps({"elements": [{"type": "text", "x": 0, "y": 0, "w": 200, "h": 80, "text": "{{a}}"}]}), encoding="utf-8")
     assert main(["template", "save", "t1", str(f), "--json"]) == 0
     capsys.readouterr()
     assert main(["print", "-T", "t1", "--var", "a=X", "-d", f"mock:{tmp_path}", "--json"]) == 0
     assert json.loads(capsys.readouterr().out)["printed"] == 1
-    s = Server("mock:")
-    r = s.handle({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "p21_list_templates", "arguments": {}}})
-    assert "t1" in r["result"]["content"][0]["text"]
-    r = s.handle({"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "p21_render", "arguments": {"template": "t1", "variables": {"a": "Y"}}}})
-    assert r["result"]["content"][0]["type"] == "image"
-    r = s.handle({"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "p21_render", "arguments": {"template": "t1", "text": "x"}}})
-    assert r["error"]["code"] == -32602
 
 
 def test_image_path_with_variable_is_kept_absolute(tmp_path):
@@ -70,9 +62,8 @@ def test_image_path_with_variable_is_kept_absolute(tmp_path):
     assert not render.render(lab).errors
 
 
-def test_variable_images_are_copied_and_gui_can_use_them(tmp_path):
+def test_variable_images_are_copied(tmp_path):
     from p21studio import label as labelmod
-    from p21studio.server import _checked_labels, _only_data_uris
 
     icons = tmp_path / "icons"
     icons.mkdir()
@@ -82,10 +73,5 @@ def test_variable_images_are_copied_and_gui_can_use_them(tmp_path):
     f.write_text(json.dumps({"elements": [{"type": "image", "x": 0, "y": 0, "w": 10, "h": 10, "src": "icons/{{icon}}.png"}]}), encoding="utf-8")
     templates.save_template("parts2", labelmod.load(f))
     (icons / "nut.png").unlink()  # the template must not depend on the original folder
-    lab = {k: v for k, v in templates.load_template("parts2").items() if not k.startswith("_")}
-    _only_data_uris(lab)
-    _checked_labels(lab, {"icon": "nut"}, None)
-    with pytest.raises(labelmod.LabelError):
-        _checked_labels(lab, {"icon": "../../../../../../Windows/win"}, None)
     templates.delete_template("parts2")
     assert not (templates.templates_dir() / "assets" / "parts2").exists()

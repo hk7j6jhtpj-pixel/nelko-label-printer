@@ -5,7 +5,6 @@ from PIL import Image, ImageChops
 
 from p21studio import api, label as labelmod
 from p21studio.cli import main
-from p21studio.mcp import Server
 from p21studio.printer import P21, PrinterNotReady
 from p21studio.render import render, text_label
 from p21studio.transports import MockTransport, from_spec, RfcommTransport, SerialTransport, BleTransport
@@ -93,11 +92,3 @@ def test_cli_render_and_print(tmp_path, capsys):
     assert main(["print", str(f), "-d", f"mock:{tmp_path}", "--json"]) == 0
     assert json.loads(capsys.readouterr().out)["printed"] == 1
     assert main(["print", "-t", "x", "-d", "nonsense", "--json"]) == 4
-
-
-def test_mcp_render_returns_image():
-    s = Server()
-    resp = s.handle({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "p21_render", "arguments": {"text": "hi"}}})
-    content = resp["result"]["content"]
-    assert content[0]["type"] == "image" and content[0]["mimeType"] == "image/png"
-    assert s.handle({"jsonrpc": "2.0", "method": "notifications/initialized"}) is None

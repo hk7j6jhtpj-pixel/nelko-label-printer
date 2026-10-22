@@ -47,8 +47,7 @@ saved as a PNG instead.
 The desktop app makes no internet connections. It uses Bluetooth only, and its only dependencies are
 Pillow and bleak (plus the bundled [Lucide](https://lucide.dev) icon font, ISC licence). History and settings
 are saved in your user folder (`%APPDATA%\p21studio` on Windows, `~/Library/Application Support/p21studio`
-on macOS). The original project's optional browser GUI (`p21 gui`) and AI server (`p21 mcp`) run local
-servers. The desktop app never starts them.
+on macOS). This fork removed the original project's browser GUI and MCP server (they opened local network ports) for privacy.
 
 ---
 
@@ -58,9 +57,8 @@ servers. The desktop app never starts them.
 
 Nelko P21（Bluetooth ラベルプリンタ）を **スマホアプリなしで PC から使う**ためのツールです。
 
-- **GUI**: ブラウザで動くラベルエディタ（ドラッグ配置、テンプレート、差し込み印刷、CSV 一括印刷）
 - **CLI**: `p21 print -t "ラベル"` のようにコマンド 1 行で印刷。全コマンドに `--json` があります
-- **AI 連携**: JSON のラベル形式、プレビュー PNG 出力、**MCP サーバ**（`p21 mcp`）
+- **AI 連携**: JSON のラベル形式、プレビュー PNG 出力（このフォークでは GUI / MCP は削除済み）
 - Windows / macOS / Linux（Raspberry Pi も可）。Python 3.10 以上
 
 プロトコルの調査結果は [research/](research/README.md) にまとめてあります。
@@ -98,21 +96,6 @@ p21 info                            # 状態・入っているラベルのサイ
 
 実機なしで試すには `mock:`（仮想プリンタ。「印刷」した画像が保存されます）を使えます。
 
-## GUI
-
-```bash
-p21 gui            # ブラウザが開きます（http://127.0.0.1:8721/）
-p21 gui --host 0.0.0.0   # LAN の他端末から使う（表示されるトークン付き URL を開く）
-```
-
-- 左: 要素の追加（テキスト / QR / バーコード / 画像 / 四角 / 円 / 線 / 日付）とテンプレート
-- 中央: プレビュー。**印刷と同じ描画エンジンの出力をそのまま表示**しているので、見たまま印刷されます
-- 文字は**ダブルクリック（または Enter）でその場で直接入力**できます（Esc で取り消し、枠の外をクリックで確定）
-- 右: 選んだ要素の設定。文字は「枠に合わせる」で自動的に最大サイズになります
-- `{{名前}}` を書くと差し込み変数の欄が出ます。CSV を読み込むと 1 行 1 枚で一括印刷
-- 画像はドラッグ＆ドロップ / 貼り付け（Ctrl+V）でも追加できます
-- ショートカット: Del 削除 / Ctrl+D 複製 / 矢印で 1 ドット移動（Shift で 8）/ Ctrl+Z / Ctrl+S / Ctrl+P
-
 ## CLI
 
 ```bash
@@ -139,9 +122,8 @@ p21 fonts ゴシック                             # 使えるフォント
 
 ## テンプレート
 
-よく使うデザインはテンプレートとして保存できます。GUI・CLI・AI（MCP）で共通です。
+よく使うデザインはテンプレートとして保存できます。デスクトップアプリ・CLI で共通です。
 
-- **GUI**: 左の「＋ 今のデザインを保存」で登録し、「マイテンプレート」からクリックで呼び出します（✕ で削除）
 - **CLI**:
 
   ```bash
@@ -152,7 +134,6 @@ p21 fonts ゴシック                             # 使えるフォント
   p21 template delete 作り置き
   ```
 
-- **AI**: MCP の `p21_list_templates` / `p21_save_template`、`p21_render` / `p21_print` の `template` 引数
 
 テンプレートの中身はふつうのラベル JSON で、設定フォルダの `templates/` に入ります（`p21 template list` で場所を表示）。
 環境変数 `P21_TEMPLATES_DIR` で別のフォルダ（クラウド同期フォルダなど）を指定すると、複数の PC で共有できます。
@@ -181,20 +162,13 @@ p21 fonts ゴシック                             # 使えるフォント
 ## AI から使う
 
 - **CLI**: `p21 schema` → JSON を書く → `p21 render --json`（PNG を見て直す）→ `p21 print`
-- **MCP**: Claude Code なら
-
-  ```bash
-  claude mcp add p21 -- p21 mcp
-  ```
-
-  ツール: `p21_label_format` / `p21_render`（プレビュー画像を返す）/ `p21_print` / `p21_status` / `p21_scan` / `p21_fonts` / `p21_list_templates` / `p21_save_template` / `p21_save_label` / `p21_load_label`
 - AI 向けの説明は [AGENTS.md](AGENTS.md)、Claude Code 用スキルは [.claude/skills/p21-label/](.claude/skills/p21-label/SKILL.md)
 
 ## 仕組み
 
 ```
 ラベル JSON ──► render.py (Pillow) ──► 1bit 画像 284×96 ──► 時計回りに回転 96×284
-                                                       └─► プレビュー PNG（GUI / CLI / MCP）
+                                                       └─► プレビュー PNG（CLI）
 96×284 ──► protocol.py（TSPL: SIZE/GAP/DENSITY/BITMAP/PRINT）──► transports.py
                                                      RFCOMM ソケット / シリアル / BLE / mock
 ```
