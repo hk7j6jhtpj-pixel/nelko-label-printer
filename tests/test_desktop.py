@@ -74,3 +74,10 @@ def test_icon_font_has_every_icon():
     font = ImageFont.truetype(str(desktop.ICON_FONT), 24)
     for name, cp in desktop.ICONS.items():
         assert font.getbbox(chr(cp))[2] > 0, name
+
+
+def test_battery_low_threshold():
+    assert desktop.battery_is_low(desktop.LOW_BATTERY_PERCENT)
+    assert desktop.battery_is_low(5)
+    assert not desktop.battery_is_low(desktop.LOW_BATTERY_PERCENT + 1)
+    assert not desktop.battery_is_low(None)  # unknown is not shown as low
