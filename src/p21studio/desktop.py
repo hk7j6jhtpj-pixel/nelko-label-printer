@@ -104,6 +104,14 @@ def add_history(job: dict, path: Path | None = None) -> list[dict]:
     return items
 
 
+LOW_BATTERY_PERCENT = 20
+
+
+def battery_is_low(percent) -> bool:
+    """True when the reported battery is at or below the low threshold; unknown is not low."""
+    return percent is not None and percent <= LOW_BATTERY_PERCENT
+
+
 def friendly_error(e: BaseException) -> str:
     """Short plain message for the status line; technical text goes in Details."""
     from .printer import PrinterNotReady
@@ -308,6 +316,9 @@ class App:
             self._icons[key] = ImageTk.PhotoImage(img.resize((px, px), Image.Resampling.LANCZOS))
         return self._icons[key]
 
+    def _paint_printer_lbl(self) -> None:
+        self.printer_lbl.configure(fg=self.pal["warning" if self.batt_low else "muted"])
+
     def apply_theme(self) -> None:
         self.pal = p = PALETTES[self._resolved_theme()]
         s = self.style
@@ -378,6 +389,8 @@ class App:
         self.bt_btn.pack(side="left")
         self.printer_lbl = self.label(top, "", role="muted", font=self.f_mono)
         self.printer_lbl.pack(side="left", padx=8)
+        self.batt_low = False
+        self.themed(self._paint_printer_lbl)  # registered after label(), so it wins on repaint
         self.theme_btn = IconButton(top, self, "sun-moon", "Theme: system / light / dark", self.cycle_theme)
         self.theme_btn.pack(side="right")
 
@@ -704,6 +717,8 @@ class App:
             name = "P21" if not str(payload.get("device", "")).startswith("mock") else "Mock printer"
             pct = f" · {batt['percent']}%" if batt.get("percent") is not None else ""
             self.printer_lbl.configure(text=f"{name}{pct}")
+            self.batt_low = battery_is_low(batt.get("percent"))
+            self._paint_printer_lbl()
             self.set_status("Ready.", "success")
         elif kind == "printing":
             self.set_status(f"Printing “{payload['text'].strip()[:24]}” ×{payload['copies']}…", "muted")
@@ -715,6 +730,7 @@ class App:
         elif kind == "done":
             self.busy = False
             self.set_status("Printed.", "success")
+            self.worker.inbox.put(("info", None))  # battery drops while printing; the single worker keeps this after the print
         elif kind == "info_error":
             self.printer_lbl.configure(text="No printer")
             self.set_status(friendly_error(payload), "error", details=f"{type(payload).__name__}: {payload}\n\n{details}")
