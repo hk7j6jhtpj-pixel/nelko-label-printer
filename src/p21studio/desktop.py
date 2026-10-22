@@ -36,7 +36,7 @@ ICONS = {
     "bold": 0xE061, "italic": 0xE100, "underline": 0xE19A, "printer": 0xE145,
     "list-plus": 0xE23F, "list-start": 0xE2E1, "x": 0xE1B2, "history": 0xE1F5,
     "repeat": 0xE14A, "sun": 0xE17C, "moon": 0xE122, "sun-moon": 0xE2B2,
-    "bluetooth": 0xE060, "tag": 0xE183,
+    "bluetooth": 0xE060, "tag": 0xE183, "search": 0xE155,
 }
 
 # Palette: "Minimalism & Swiss" navy + green (ui-ux-pro search), with Will's house
@@ -476,6 +476,9 @@ class App:
         self.label(head, "History", role="muted", font=self.f_head).pack(side="left")
         search = ttk.Entry(head, textvariable=self.filter_var, width=24)
         search.pack(side="right")
+        icon = tk.Label(head)
+        self.themed(lambda: icon.configure(image=self.icon("search", self.pal["muted"]), bg=self.pal["bg"]))
+        icon.pack(side="right", padx=(0, 6))
         Tooltip(search, "Search history  (Ctrl+F)", self)
         self.search_entry = search
         self.filter_var.trace_add("write", lambda *_: self.render_history())
@@ -579,7 +582,7 @@ class App:
             return
         self.queue_jobs.append(job)
         self.render_queue()
-        self.set_status(f"Added to queue ({len(self.queue_jobs)} labels waiting).", "muted")
+        self.set_status("Added to queue.", "muted")
 
     def remove_from_queue(self, i: int) -> None:
         self.removed = (i, self.queue_jobs.pop(i))
